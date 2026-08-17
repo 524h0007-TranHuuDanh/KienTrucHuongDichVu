@@ -1,0 +1,2 @@
+com\tdtu\ibanking\payment\PaymentApplication.class
+com\tdtu\ibanking\payment\config\RedissonConfig.class
