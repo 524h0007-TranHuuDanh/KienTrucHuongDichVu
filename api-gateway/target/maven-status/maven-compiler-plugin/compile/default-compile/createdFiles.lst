@@ -1,1 +1,4 @@
+com\tdtu\ibanking\gateway\config\GatewayConfig.class
+com\tdtu\ibanking\gateway\config\SecurityConfig.class
+com\tdtu\ibanking\gateway\filter\JwtAuthenticationFilter.class
 com\tdtu\ibanking\gateway\GatewayApplication.class
