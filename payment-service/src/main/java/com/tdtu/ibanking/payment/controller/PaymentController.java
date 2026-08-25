@@ -1,0 +1,41 @@
+package com.tdtu.ibanking.payment.controller;
+
+import com.tdtu.ibanking.payment.dto.OtpVerifyRequest;
+import com.tdtu.ibanking.payment.dto.PaymentInitRequest;
+import com.tdtu.ibanking.payment.dto.PaymentInitResponse;
+import com.tdtu.ibanking.payment.service.PaymentService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/payments")
+@RequiredArgsConstructor
+public class PaymentController {
+    private final PaymentService paymentService;
+
+    @PostMapping("/initiate")
+    public ResponseEntity<PaymentInitResponse> initiatePayment(
+            @Valid @RequestBody PaymentInitRequest request,
+            HttpServletRequest httpRequest) {
+        UUID userId = (UUID) httpRequest.getAttribute("userId");
+        PaymentInitResponse response = paymentService.initiatePayment(request.getMssv(), userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<String> verifyOtp(
+            @Valid @RequestBody OtpVerifyRequest request,
+            HttpServletRequest httpRequest) {
+        UUID userId = (UUID) httpRequest.getAttribute("userId");
+        String result = paymentService.verifyOtpAndPay(request.getTransactionId(), request.getOtp(), userId);
+        return ResponseEntity.ok(result);
+    }
+}

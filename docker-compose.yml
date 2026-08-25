@@ -20,12 +20,16 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ibanking-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-}
     ports:
       - "6379:6379"
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: ibanking-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -39,6 +43,7 @@ services:
       DB_HOST: postgres
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,12 +68,14 @@ services:
       - "8083:8083"
     environment:
       DB_HOST: postgres
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_USER: ${DB_USER:-payment_user}
+      DB_PASSWORD: ${DB_PASSWORD:-payment_pass}
       REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       RABBITMQ_HOST: rabbitmq
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASS: ${EMAIL_PASS}
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,8 +91,10 @@ services:
       - "8084:8084"
     environment:
       RABBITMQ_HOST: rabbitmq
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASS: ${EMAIL_PASS}
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
     depends_on:
       rabbitmq:
         condition: service_started
@@ -96,22 +105,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      AUTH_HOST: auth-service
-      TUITION_HOST: tuition-service
-      PAYMENT_HOST: payment-service
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       - auth-service
       - tuition-service
       - payment-service
-
-  # Nếu bạn có frontend, bỏ comment:
-  # frontend-ui:
-  #   build: ./frontend-ui
-  #   container_name: ibanking-frontend
-  #   ports:
-  #     - "3000:80"
-  #   depends_on:
-  #     - api-gateway
 
 volumes:
   postgres_data:
