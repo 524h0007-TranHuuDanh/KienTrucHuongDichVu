@@ -1,1 +1,5 @@
 com\tdtu\ibanking\notification\NotificationApplication.class
+com\tdtu\ibanking\notification\config\RabbitMQConfig.class
+com\tdtu\ibanking\notification\listener\NotificationListener.class
+com\tdtu\ibanking\notification\model\EmailMessage.class
+com\tdtu\ibanking\notification\service\EmailService.class
