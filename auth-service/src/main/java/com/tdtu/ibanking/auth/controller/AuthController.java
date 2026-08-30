@@ -1,11 +1,16 @@
 package com.tdtu.ibanking.auth.controller;
 
+import com.tdtu.ibanking.auth.dto.BalanceChangeRequest;
+import com.tdtu.ibanking.auth.dto.BalanceResponse;
 import com.tdtu.ibanking.auth.dto.LoginRequest;
 import com.tdtu.ibanking.auth.dto.LoginResponse;
 import com.tdtu.ibanking.auth.entity.User;
 import com.tdtu.ibanking.auth.repository.UserRepository;
 import com.tdtu.ibanking.auth.security.JwtUtils;
+import com.tdtu.ibanking.auth.service.BalanceService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -32,6 +37,9 @@ public class AuthController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private BalanceService balanceService;
 
     @GetMapping("/fix")
     public String fixPassword() {
@@ -89,5 +97,27 @@ public class AuthController {
                 "email", user.getEmail(),
                 "balance", user.getBalance()
         ));
+    }
+
+    @PostMapping("/users/{id}/debit")
+    public ResponseEntity<BalanceResponse> debit(@PathVariable UUID id,
+                                                  @Valid @RequestBody BalanceChangeRequest request) {
+        try {
+            return ResponseEntity.ok(
+                    balanceService.debit(id, request.getAmount(), request.getTransactionId()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.ok(balanceService.getBalance(id));
+        }
+    }
+
+    @PostMapping("/users/{id}/credit")
+    public ResponseEntity<BalanceResponse> credit(@PathVariable UUID id,
+                                                   @Valid @RequestBody BalanceChangeRequest request) {
+        try {
+            return ResponseEntity.ok(
+                    balanceService.credit(id, request.getAmount(), request.getTransactionId()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.ok(balanceService.getBalance(id));
+        }
     }
 }
