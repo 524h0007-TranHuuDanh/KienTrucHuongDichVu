@@ -1,0 +1,35 @@
+# ===== Môi trường & bảo mật =====
+.env
+.env.*
+!.env.example
+*.env
+
+# Khóa / chứng chỉ / secret
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+credentials*.json
+
+# ===== Claude Code (không push) =====
+.claude/
+
+# ===== Java / Maven =====
+target/
+*.class
+*.log
+dependency-reduced-pom.xml
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# ===== Hệ điều hành =====
+.DS_Store
+Thumbs.db
