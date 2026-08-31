@@ -17,3 +17,6 @@ spring:
 jwt:
   secret: ${JWT_SECRET:c2VjcmV0LWtleS1mb3ItaWJhbmtpbmctcHJvamVjdA==}
   expiration: 86400000
+
+internal:
+  api-key: ${INTERNAL_API_KEY}

@@ -1,7 +1,9 @@
 package com.tdtu.ibanking.auth.config;
 
 import com.tdtu.ibanking.auth.security.AuthTokenFilter;
+import com.tdtu.ibanking.auth.security.InternalApiKeyFilter;
 import com.tdtu.ibanking.auth.security.UserDetailsServiceImpl;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +28,11 @@ public class SecurityConfig {
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
         return new AuthTokenFilter();
+    }
+
+    @Bean
+    public InternalApiKeyFilter internalApiKeyFilter() {
+        return new InternalApiKeyFilter();
     }
 
     @Bean
@@ -54,10 +61,25 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login", "/api/auth/fix").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"message\":\"Token không hợp lệ hoặc đã hết hạn\"}");
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"message\":\"" + accessDeniedException.getMessage() + "\"}");
+                })
             );
 
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(internalApiKeyFilter(), AuthTokenFilter.class);
 
         return http.build();
     }
