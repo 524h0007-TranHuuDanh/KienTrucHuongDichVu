@@ -17,3 +17,6 @@ spring:
   sql:
     init:
       mode: always
+
+internal:
+  api-key: ${INTERNAL_API_KEY}

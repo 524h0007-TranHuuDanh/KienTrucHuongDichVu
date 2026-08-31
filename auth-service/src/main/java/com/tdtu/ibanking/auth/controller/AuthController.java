@@ -7,14 +7,17 @@ import com.tdtu.ibanking.auth.dto.LoginResponse;
 import com.tdtu.ibanking.auth.entity.User;
 import com.tdtu.ibanking.auth.repository.UserRepository;
 import com.tdtu.ibanking.auth.security.JwtUtils;
+import com.tdtu.ibanking.auth.security.UserDetailsImpl;
 import com.tdtu.ibanking.auth.service.BalanceService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,10 +47,8 @@ public class AuthController {
     @GetMapping("/fix")
     public String fixPassword() {
         try {
-            User user = userRepository.findByUsername("524h0088")
-                    .orElse(null);
+            User user = userRepository.findByUsername("524h0088").orElse(null);
             if (user == null) {
-                // Tạo mới user
                 user = User.builder()
                         .username("524h0088")
                         .password(passwordEncoder.encode("123456"))
@@ -58,7 +59,6 @@ public class AuthController {
                 userRepository.save(user);
                 return "Đã tạo user mới với password 123456!";
             } else {
-                // Cập nhật password
                 user.setPassword(passwordEncoder.encode("123456"));
                 userRepository.save(user);
                 return "Đã cập nhật mật khẩu!";
@@ -73,10 +73,7 @@ public class AuthController {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            loginRequest.getUsername(),
-                            loginRequest.getPassword()
-                    )
-            );
+                            loginRequest.getUsername(), loginRequest.getPassword()));
 
             User user = userRepository.findByUsername(loginRequest.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
@@ -90,6 +87,7 @@ public class AuthController {
 
     @GetMapping("/users/{userId}")
     public ResponseEntity<?> getUserInfo(@PathVariable UUID userId) {
+        enforceOwnershipOrInternal(userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return ResponseEntity.ok(Map.of(
@@ -119,5 +117,21 @@ public class AuthController {
         } catch (DataIntegrityViolationException e) {
             return ResponseEntity.ok(balanceService.getBalance(id));
         }
+    }
+
+    private void enforceOwnershipOrInternal(UUID targetUserId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication.getPrincipal();
+
+        if ("internal-service".equals(principal)) {
+            return;
+        }
+        if (principal instanceof UserDetailsImpl userDetails) {
+            if (!userDetails.getId().equals(targetUserId)) {
+                throw new AccessDeniedException("Không có quyền truy cập thông tin tài khoản này");
+            }
+            return;
+        }
+        throw new AccessDeniedException("Không xác định được danh tính người gọi");
     }
 }
