@@ -83,4 +83,11 @@ public class SecurityConfig {
 
         return http.build();
     }
+
+    @Bean
+    public FilterRegistrationBean<InternalApiKeyFilter> disableAutoRegistration(InternalApiKeyFilter filter) {
+        FilterRegistrationBean<InternalApiKeyFilter> reg = new FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
+    }
 }
