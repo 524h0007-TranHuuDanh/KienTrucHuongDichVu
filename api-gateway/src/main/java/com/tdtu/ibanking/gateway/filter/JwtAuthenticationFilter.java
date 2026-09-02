@@ -21,8 +21,7 @@ import java.util.Set;
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/api/auth/login",
-            "/api/auth/fix"
+            "/api/auth/login"
     );
 
     @Value("${jwt.secret}")
@@ -39,7 +38,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
 
-        // Bỏ qua xác thực cho login và fix
+        // Bỏ qua xác thực cho login
         if (PUBLIC_PATHS.contains(path)) {
             return chain.filter(exchange);
         }
