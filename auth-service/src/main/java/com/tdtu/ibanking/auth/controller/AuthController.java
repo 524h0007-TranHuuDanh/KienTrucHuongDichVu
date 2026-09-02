@@ -18,10 +18,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,37 +34,10 @@ public class AuthController {
     private JwtUtils jwtUtils;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
     private UserRepository userRepository;
 
     @Autowired
     private BalanceService balanceService;
-
-    @GetMapping("/fix")
-    public String fixPassword() {
-        try {
-            User user = userRepository.findByUsername("524h0088").orElse(null);
-            if (user == null) {
-                user = User.builder()
-                        .username("524h0088")
-                        .password(passwordEncoder.encode("123456"))
-                        .fullName("Tran Huu Danh")
-                        .email("danh@tdtu.edu.vn")
-                        .balance(BigDecimal.valueOf(15000000))
-                        .build();
-                userRepository.save(user);
-                return "Đã tạo user mới với password 123456!";
-            } else {
-                user.setPassword(passwordEncoder.encode("123456"));
-                userRepository.save(user);
-                return "Đã cập nhật mật khẩu!";
-            }
-        } catch (Exception e) {
-            return "Lỗi: " + e.getMessage();
-        }
-    }
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {

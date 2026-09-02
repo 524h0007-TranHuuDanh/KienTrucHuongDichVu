@@ -15,7 +15,7 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/api/auth/login", "/api/auth/fix").permitAll()
+                .pathMatchers("/api/auth/login").permitAll()
                 // JWT is enforced by the gateway GlobalFilter, which is invoked
                 // after this WebFlux security chain.
                 .anyExchange().permitAll()

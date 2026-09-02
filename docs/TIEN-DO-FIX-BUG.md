@@ -226,20 +226,22 @@ Viết SQL thuần với `LIMIT` — chỉ chạy trên PostgreSQL/MySQL, không
 
 ## 5. Lỗi ngoài tuition-service cần xử
 
-### A-01 — `/api/auth/fix` công khai `[RẤT NGHIÊM TRỌNG — auth-service]`
+### ✅ A-01 — `/api/auth/fix` công khai `[RẤT NGHIÊM TRỌNG — auth-service]` — ĐÃ FIX
 
 **Vị trí:** `auth-service/.../controller/AuthController.java` hàm `fixPassword()`
 
-`GET /api/auth/fix` được `permitAll` ở **cả** gateway lẫn auth-service. Mở trình duyệt gõ đường dẫn đó là mật khẩu tài khoản `524h0088` bị đặt lại thành `123456`, hoặc tài khoản được tạo mới với số dư 15 triệu. Không cần đăng nhập gì cả.
+Trước: `GET /api/auth/fix` `permitAll` ở cả gateway lẫn auth-service — gõ URL trên trình duyệt là reset mật khẩu `524h0088` về `123456` / tạo tài khoản số dư 15tr, không cần đăng nhập. `GET` mà lại ghi dữ liệu + bịa danh tính.
 
-Đây là code viết tạm lúc dev. Để nguyên khi nộp bài/demo thì ai xem màn hình cũng chiếm được tài khoản.
+**Đã làm:**
+- Xoá `@GetMapping("/fix")` + `fixPassword()` khỏi `AuthController`; dọn `import BigDecimal` và field `PasswordEncoder` thừa.
+- Gỡ `/api/auth/fix` khỏi permitAll ở **3 chỗ**: `api-gateway JwtAuthenticationFilter.PUBLIC_PATHS`, `api-gateway SecurityConfig.pathMatchers`, `auth-service SecurityConfig.requestMatchers`.
+- Thay bằng **`auth-service/.../config/DemoDataSeeder.java`** (`CommandLineRunner`, không có đường HTTP): seed 2 user, upsert + ghi đè `password` + `balance` mỗi lần khởi động.
+  - `524h0088` / `123456` / số dư **100.000.000** — chạy mọi happy path + người trả A trong test thanh toán đồng thời.
+  - `524h0456` / `123456` / số dư **15.000.000** — học phí của chính mình (`524H0456` = 20tr) > số dư → demo ca 409; người trả B trong test đồng thời.
+- Đã `mvn -o compile` sạch cho auth-service + api-gateway.
 
-**Sửa:** xoá hẳn phương thức, và xoá đường dẫn khỏi danh sách permitAll ở **3 chỗ**:
-1. `api-gateway/.../filter/JwtAuthenticationFilter.java` → `PUBLIC_PATHS`
-2. `api-gateway/.../config/SecurityConfig.java` → `pathMatchers(...)`
-3. `auth-service/.../config/SecurityConfig.java` → `requestMatchers(...)`
-
-Tài khoản mẫu chuyển sang file `data.sql` như tuition-service đang làm.
+> **Ghi nhận lỗ hổng mới (chưa xử):** tuition-service `SecurityConfig` chỉ `.anyRequest().authenticated()`, không kiểm token có phải chủ MSSV → user bất kỳ tra được học phí mọi MSSV. Nhẹ, để sau.
+> **Chưa test runtime** (cần `docker compose up`): đăng nhập `524h0088`/`123456`, và `GET /api/auth/fix` phải trả 401.
 
 ### payment-service — 24 lỗi, xem `LOI-PAYMENT-SERVICE.md`
 
@@ -256,8 +258,8 @@ Chưa fix cái nào. Thứ tự ưu tiên đã ghi cuối file đó:
 1. ~~**Xong T-01** (B4 → B7)~~ — thư mục `filter/` + `SecurityConfig.java` đã có (cần kiểm lại B7)
 2. ~~**T-02**~~ ✅ đã fix
 3. ~~**T-04**~~ ✅ đã fix
-4. **A-01** — ⬅️ ĐANG LÀM — 5 phút, xoá code, mà mức độ nghiêm trọng nhất toàn dự án
-5. Sang `LOI-PAYMENT-SERVICE.md`, bắt đầu từ **P-01**
+4. ~~**A-01**~~ ✅ đã fix (thêm `DemoDataSeeder`, xoá `/fix`)
+5. **⬅️ TIẾP THEO:** sang `LOI-PAYMENT-SERVICE.md`, bắt đầu từ **P-01**
 
 ---
 
