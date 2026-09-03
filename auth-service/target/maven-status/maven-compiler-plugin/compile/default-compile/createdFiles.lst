@@ -7,6 +7,7 @@ com\tdtu\ibanking\auth\config\GlobalExceptionHandler.class
 com\tdtu\ibanking\auth\security\UserDetailsServiceImpl.class
 com\tdtu\ibanking\auth\repository\UserRepository.class
 com\tdtu\ibanking\auth\entity\User.class
+com\tdtu\ibanking\auth\exception\TransactionAlreadyFinalizedException.class
 com\tdtu\ibanking\auth\exception\InsufficientBalanceException.class
 com\tdtu\ibanking\auth\controller\AuthController.class
 com\tdtu\ibanking\auth\security\InternalApiKeyFilter.class

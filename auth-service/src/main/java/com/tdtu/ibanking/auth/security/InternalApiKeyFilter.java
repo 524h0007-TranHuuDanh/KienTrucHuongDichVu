@@ -16,13 +16,17 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.List;
-
+import java.util.Map;
+//sửa cho p22:  thêm GET /api/auth/users/* vào danh sách bảo vệ bằng
+//internal key - vì AuthServiceCLient.getUserInfo() giờ dùng key thay vì JWT relay
 public class InternalApiKeyFilter extends OncePerRequestFilter {
 
     private static final String HEADER_NAME = "X-Internal-Api-Key";
-    private static final List<String> PROTECTED_PATTERNS = List.of(
-            "/api/auth/users/*/debit",
-            "/api/auth/users/*/credit"
+
+    // method -> danh sách pattern cần bảo vệ bằng internal key
+    private static final Map<String, List<String>> PROTECTED_ROUTES = Map.of(
+            "POST", List.of("/api/auth/users/*/debit", "/api/auth/users/*/credit"),
+            "GET",  List.of("/api/auth/users/*")
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
@@ -36,7 +40,9 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
                                      FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        boolean isProtected = PROTECTED_PATTERNS.stream().anyMatch(p -> pathMatcher.match(p, path));
+        String method = request.getMethod();
+        List<String> patterns = PROTECTED_ROUTES.getOrDefault(method, List.of());
+        boolean isProtected = patterns.stream().anyMatch(p -> pathMatcher.match(p, path));
 
         if (isProtected) {
             String providedKey = request.getHeader(HEADER_NAME);
