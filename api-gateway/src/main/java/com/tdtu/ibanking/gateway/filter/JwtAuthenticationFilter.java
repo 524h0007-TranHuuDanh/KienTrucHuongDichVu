@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -21,8 +22,7 @@ import java.util.Set;
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/api/auth/login",
-            "/api/auth/fix"
+            "/api/auth/login"
     );
 
     @Value("${jwt.secret}")
@@ -39,7 +39,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
 
-        // Bỏ qua xác thực cho login và fix
+        // Bỏ qua xác thực cho preflight CORS (trình duyệt gửi OPTIONS trước request thật)
+        if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
+
+        // Bỏ qua xác thực cho login
         if (PUBLIC_PATHS.contains(path)) {
             return chain.filter(exchange);
         }

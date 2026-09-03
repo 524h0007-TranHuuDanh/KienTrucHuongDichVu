@@ -1,1 +1,9 @@
-com\tdtu\ibanking\tuition\TuitionApplication.class
+com\tdtu\ibanking\tuition\repository\TuitionRepository.class
+com\tdtu\ibanking\tuition\controller\TuitionController.class
+com\tdtu\ibanking\tuition\entity\Tuition.class
+com\tdtu\ibanking\tuition\repository\StudentRepository.class
+com\tdtu\ibanking\tuition\dto\TuitionDetailResponse.class
+com\tdtu\ibanking\tuition\entity\Student.class
+com\tdtu\ibanking\tuition\service\TuitionService.class
+com\tdtu\ibanking\tuition\dto\MarkPaidRequest.class
+com\tdtu\ibanking\tuition\dto\TuitionResponse.class

@@ -37,13 +37,12 @@ services:
   auth-service:
     build: ./auth-service
     container_name: ibanking-auth
-    ports:
-      - "8081:8081"
     environment:
       DB_HOST: postgres
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,12 +50,12 @@ services:
   tuition-service:
     build: ./tuition-service
     container_name: ibanking-tuition
-    ports:
-      - "8082:8082"
     environment:
       DB_HOST: postgres
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,8 +63,6 @@ services:
   payment-service:
     build: ./payment-service
     container_name: ibanking-payment
-    ports:
-      - "8083:8083"
     environment:
       DB_HOST: postgres
       DB_USER: ${DB_USER:-payment_user}
@@ -76,6 +73,7 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
