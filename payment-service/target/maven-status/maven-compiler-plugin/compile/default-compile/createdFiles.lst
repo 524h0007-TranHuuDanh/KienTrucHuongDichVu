@@ -1,10 +1,15 @@
 com\tdtu\ibanking\payment\dto\PaymentInitResponse.class
 com\tdtu\ibanking\payment\PaymentApplication.class
+com\tdtu\ibanking\payment\exception\RateLimitExceededException.class
+com\tdtu\ibanking\payment\dto\PaymentSuccessResponse.class
+com\tdtu\ibanking\payment\exception\UnauthorizedTransactionException.class
 com\tdtu\ibanking\payment\dto\BalanceResponse.class
 com\tdtu\ibanking\payment\entity\Transaction.class
+com\tdtu\ibanking\payment\exception\InsufficientBalanceException.class
 com\tdtu\ibanking\payment\dto\TuitionDetailInfo.class
 com\tdtu\ibanking\payment\repository\TransactionRepository.class
 com\tdtu\ibanking\payment\entity\TransactionStatus.class
+com\tdtu\ibanking\payment\exception\ServiceBusyException.class
 com\tdtu\ibanking\payment\config\RedisConfig.class
 com\tdtu\ibanking\payment\dto\BalanceChangeRequest.class
 com\tdtu\ibanking\payment\config\GlobalExceptionHandler.class
@@ -16,6 +21,7 @@ com\tdtu\ibanking\payment\util\JwtUtil.class
 com\tdtu\ibanking\payment\client\TuitionServiceClient.class
 com\tdtu\ibanking\payment\dto\EmailMessage.class
 com\tdtu\ibanking\payment\dto\PaymentInitRequest.class
+com\tdtu\ibanking\payment\exception\TransactionNotFoundException.class
 com\tdtu\ibanking\payment\service\PaymentService.class
 com\tdtu\ibanking\payment\client\AuthServiceClient.class
 com\tdtu\ibanking\payment\config\RestTemplateConfig.class
