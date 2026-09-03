@@ -1,12 +1,12 @@
 com\tdtu\ibanking\payment\dto\PaymentInitResponse.class
 com\tdtu\ibanking\payment\PaymentApplication.class
-com\tdtu\ibanking\payment\repository\UserRepository.class
+com\tdtu\ibanking\payment\dto\BalanceResponse.class
 com\tdtu\ibanking\payment\entity\Transaction.class
+com\tdtu\ibanking\payment\dto\TuitionDetailInfo.class
 com\tdtu\ibanking\payment\repository\TransactionRepository.class
 com\tdtu\ibanking\payment\entity\TransactionStatus.class
-com\tdtu\ibanking\payment\entity\Tuition.class
-com\tdtu\ibanking\payment\entity\User.class
 com\tdtu\ibanking\payment\config\RedisConfig.class
+com\tdtu\ibanking\payment\dto\BalanceChangeRequest.class
 com\tdtu\ibanking\payment\config\GlobalExceptionHandler.class
 com\tdtu\ibanking\payment\dto\UserInfo.class
 com\tdtu\ibanking\payment\service\RateLimiterService.class
@@ -24,4 +24,4 @@ com\tdtu\ibanking\payment\dto\OtpVerifyRequest.class
 com\tdtu\ibanking\payment\config\RabbitMQConfig.class
 com\tdtu\ibanking\payment\filter\JwtAuthenticationFilter.class
 com\tdtu\ibanking\payment\controller\PaymentController.class
-com\tdtu\ibanking\payment\repository\TuitionRepository.class
+com\tdtu\ibanking\payment\client\TuitionServiceClient$MarkPaidRequest.class
