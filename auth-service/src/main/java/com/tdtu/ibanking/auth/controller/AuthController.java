@@ -20,6 +20,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -61,11 +62,14 @@ public class AuthController {
         enforceOwnershipOrInternal(userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(Map.of(
-                "id", user.getId(),
-                "email", user.getEmail(),
-                "balance", user.getBalance()
-        ));
+        // sửa để đúng đặc tả (Mục 1): trả thêm "phone" - dùng HashMap vì Map.of()
+        // ném NPE nếu phone null (chưa mọi user demo đều có số điện thoại)
+        Map<String, Object> body = new HashMap<>();
+        body.put("id", user.getId());
+        body.put("email", user.getEmail());
+        body.put("phone", user.getPhone());
+        body.put("balance", user.getBalance());
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/users/{id}/debit")

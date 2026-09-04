@@ -11,4 +11,7 @@ import java.util.UUID;
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
     Optional<Transaction> findFirstByTuitionIdAndStatusInOrderByCreatedAtDesc(
             UUID tuitionId, List<TransactionStatus> statuses);
+
+    // API lịch sử giao dịch (đặc tả Mục 1: "Lịch sử các giao dịch đã thực hiện")
+    List<Transaction> findByUserIdOrderByCreatedAtDesc(UUID userId);
 }
