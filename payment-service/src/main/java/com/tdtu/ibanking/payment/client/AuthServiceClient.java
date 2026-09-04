@@ -14,7 +14,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-
+//sửa cho p22: getUserInfo dùng internal key thay vì relay JTW
 @Component
 public class AuthServiceClient {
     @Autowired
@@ -28,7 +28,9 @@ public class AuthServiceClient {
 
     public UserInfo getUserInfo(UUID userId) {
         String url = AUTH_SERVICE_URL + "/api/auth/users/" + userId;
-        return restTemplate.getForObject(url, UserInfo.class);
+        HttpEntity<Void> entity = new HttpEntity<>(internalHeaders());
+        ResponseEntity<UserInfo> resp = restTemplate.exchange(url, HttpMethod.GET, entity, UserInfo.class);
+        return resp.getBody();
     }
 
     public BalanceResponse debit(UUID userId, BigDecimal amount, UUID transactionId) {

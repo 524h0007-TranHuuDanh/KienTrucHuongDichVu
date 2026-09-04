@@ -6,11 +6,11 @@ import com.tdtu.ibanking.auth.entity.EntryType;
 import com.tdtu.ibanking.auth.entity.User;
 import com.tdtu.ibanking.auth.exception.InsufficientBalanceException;
 import com.tdtu.ibanking.auth.exception.InvalidRefundException;
+import com.tdtu.ibanking.auth.exception.TransactionAlreadyFinalizedException;
 import com.tdtu.ibanking.auth.exception.UserNotFoundException;
 import com.tdtu.ibanking.auth.repository.BalanceEntryRepository;
 import com.tdtu.ibanking.auth.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +28,13 @@ public class BalanceService {
 
     @Transactional
     public BalanceResponse debit(UUID userId, BigDecimal amount, UUID transactionId) {
-        if (balanceEntryRepository.existsByTransactionIdAndType(transactionId, EntryType.DEBIT)) {
+        boolean alreadyDebited = balanceEntryRepository.existsByTransactionIdAndType(transactionId, EntryType.DEBIT);
+        boolean alreadyRefunded = balanceEntryRepository.existsByTransactionIdAndType(transactionId, EntryType.CREDIT);
+
+        if (alreadyDebited && alreadyRefunded) {
+            throw new TransactionAlreadyFinalizedException(transactionId);
+        }
+        if (alreadyDebited) {
             return current(userId);
         }
 
@@ -41,7 +47,6 @@ public class BalanceService {
 
         user.setBalance(user.getBalance().subtract(amount));
         userRepository.save(user);
-
         balanceEntryRepository.save(new BalanceEntry(userId, transactionId, EntryType.DEBIT, amount));
 
         return toResponse(user);
@@ -52,7 +57,6 @@ public class BalanceService {
         if (balanceEntryRepository.existsByTransactionIdAndType(transactionId, EntryType.CREDIT)) {
             return current(userId);
         }
-
         if (!balanceEntryRepository.existsByTransactionIdAndType(transactionId, EntryType.DEBIT)) {
             throw new InvalidRefundException();
         }
@@ -62,7 +66,6 @@ public class BalanceService {
 
         user.setBalance(user.getBalance().add(amount));
         userRepository.save(user);
-
         balanceEntryRepository.save(new BalanceEntry(userId, transactionId, EntryType.CREDIT, amount));
 
         return toResponse(user);

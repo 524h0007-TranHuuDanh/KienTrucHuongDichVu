@@ -3,6 +3,7 @@ package com.tdtu.ibanking.payment.controller;
 import com.tdtu.ibanking.payment.dto.OtpVerifyRequest;
 import com.tdtu.ibanking.payment.dto.PaymentInitRequest;
 import com.tdtu.ibanking.payment.dto.PaymentInitResponse;
+import com.tdtu.ibanking.payment.dto.PaymentSuccessResponse;
 import com.tdtu.ibanking.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
-
+//sửa cho p20: verifyOtp trả JSON object
 @RestController
 @RequestMapping("/api/payments")
 @RequiredArgsConstructor
@@ -31,11 +32,11 @@ public class PaymentController {
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<String> verifyOtp(
+    public ResponseEntity<PaymentSuccessResponse> verifyOtp(
             @Valid @RequestBody OtpVerifyRequest request,
             HttpServletRequest httpRequest) {
         UUID userId = (UUID) httpRequest.getAttribute("userId");
-        String result = paymentService.verifyOtpAndPay(request.getTransactionId(), request.getOtp(), userId);
+        PaymentSuccessResponse result = paymentService.verifyOtpAndPay(request.getTransactionId(), request.getOtp(), userId);
         return ResponseEntity.ok(result);
     }
 }
