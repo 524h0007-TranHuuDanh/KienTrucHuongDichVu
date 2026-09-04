@@ -25,10 +25,15 @@ public class TuitionServiceClient {
     private static final String TUITION_SERVICE_URL = "http://tuition-service:8082";
     private static final String INTERNAL_KEY_HEADER = "X-Internal-Api-Key";
 
+    // sửa lỗi #1: gắn internal key cho 2 lời gọi đọc này - trước đây gọi trần,
+    // không kèm credential nào, bị tuition-service (anyRequest().authenticated())
+    // từ chối 401 ngay từ bước đầu của initiatePayment().
     public TuitionInfo getTuitionByMssv(String mssv) {
         String url = TUITION_SERVICE_URL + "/api/tuition/" + mssv;
         try {
-            return restTemplate.getForObject(url, TuitionInfo.class);
+            ResponseEntity<TuitionInfo> resp = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(internalHeaders()), TuitionInfo.class);
+            return resp.getBody();
         } catch (HttpClientErrorException.NotFound e) {
             return null;
         }
@@ -37,7 +42,9 @@ public class TuitionServiceClient {
     public TuitionDetailInfo getTuitionById(UUID id) {
         String url = TUITION_SERVICE_URL + "/api/tuition/id/" + id;
         try {
-            return restTemplate.getForObject(url, TuitionDetailInfo.class);
+            ResponseEntity<TuitionDetailInfo> resp = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(internalHeaders()), TuitionDetailInfo.class);
+            return resp.getBody();
         } catch (HttpClientErrorException.NotFound e) {
             return null;
         }
@@ -46,14 +53,17 @@ public class TuitionServiceClient {
     public TuitionDetailInfo markPaid(UUID tuitionId, UUID transactionId) {
         String url = TUITION_SERVICE_URL + "/api/tuition/" + tuitionId + "/mark-paid";
         MarkPaidRequest body = new MarkPaidRequest(transactionId);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(INTERNAL_KEY_HEADER, internalApiKey);
-        HttpEntity<MarkPaidRequest> entity = new HttpEntity<>(body, headers);
+        HttpEntity<MarkPaidRequest> entity = new HttpEntity<>(body, internalHeaders());
 
         ResponseEntity<TuitionDetailInfo> resp =
                 restTemplate.exchange(url, HttpMethod.POST, entity, TuitionDetailInfo.class);
         return resp.getBody();
+    }
+
+    private HttpHeaders internalHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(INTERNAL_KEY_HEADER, internalApiKey);
+        return headers;
     }
 
     private static class MarkPaidRequest {

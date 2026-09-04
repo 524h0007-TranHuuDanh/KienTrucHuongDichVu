@@ -371,6 +371,15 @@ public class PaymentService {
                 b.getBytes(StandardCharsets.UTF_8));
     }
 
+    // API lịch sử giao dịch (đặc tả Mục 1: "Lịch sử các giao dịch đã thực hiện")
+    public List<TransactionHistoryItem> getTransactionHistory(UUID userId) {
+        return transactionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(t -> new TransactionHistoryItem(
+                        t.getId(), t.getTuitionId(), t.getAmount(), t.getStatus(),
+                        t.getErrorMessage(), t.getCreatedAt(), t.getUpdatedAt()))
+                .toList();
+    }
+
     private String maskEmail(String email) {
         if (email == null || email.length() < 4) return "***";
         int atIndex = email.indexOf('@');

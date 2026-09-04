@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.UUID;
@@ -19,8 +20,12 @@ public class JwtUtils {
     @Value("${jwt.expiration}")
     private int jwtExpirationMs;
 
+    // sửa lỗi #4: chỉ định rõ UTF-8 thay vì charset mặc định của JVM, khớp với
+    // cách tuition-service dựng lại key ký (JwtUtil.getSignKey()) - tránh lệch
+    // chữ ký nếu secret có ký tự ngoài ASCII và hai service chạy trên JVM có
+    // charset mặc định khác nhau.
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateJwtToken(Authentication authentication, UUID userId) {

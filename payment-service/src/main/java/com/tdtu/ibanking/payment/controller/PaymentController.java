@@ -4,16 +4,19 @@ import com.tdtu.ibanking.payment.dto.OtpVerifyRequest;
 import com.tdtu.ibanking.payment.dto.PaymentInitRequest;
 import com.tdtu.ibanking.payment.dto.PaymentInitResponse;
 import com.tdtu.ibanking.payment.dto.PaymentSuccessResponse;
+import com.tdtu.ibanking.payment.dto.TransactionHistoryItem;
 import com.tdtu.ibanking.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 //sửa cho p20: verifyOtp trả JSON object
 @RestController
@@ -38,5 +41,11 @@ public class PaymentController {
         UUID userId = (UUID) httpRequest.getAttribute("userId");
         PaymentSuccessResponse result = paymentService.verifyOtpAndPay(request.getTransactionId(), request.getOtp(), userId);
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<TransactionHistoryItem>> getHistory(HttpServletRequest httpRequest) {
+        UUID userId = (UUID) httpRequest.getAttribute("userId");
+        return ResponseEntity.ok(paymentService.getTransactionHistory(userId));
     }
 }
