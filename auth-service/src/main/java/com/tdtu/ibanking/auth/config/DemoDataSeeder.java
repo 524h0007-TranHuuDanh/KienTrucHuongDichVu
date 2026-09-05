@@ -30,7 +30,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         // user "giàu" — chạy mọi happy path + là người trả A trong test thanh toán đồng thời
-        upsert("524h0088", "Tran Huu Danh", "524h0088@tdtu.edu.vn", "0901234088", "123456", new BigDecimal("100000000"));
+        upsert("524h0088", "Tran Huu Danh", "tanguyenthanhquy@gmail.com", "0901234088", "123456", new BigDecimal("100000000"));
         // học phí của chính user này (524H0456 = 20tr) > số dư -> demo ca 409 thiếu số dư;
         // đồng thời là người trả B trong test thanh toán đồng thời (trả học phí 524H0088)
         upsert("524h0456", "Pham Thi Mai", "524h0456@tdtu.edu.vn", "0901234456", "123456", new BigDecimal("15000000"));

@@ -1,5 +1,24 @@
 package com.tdtu.ibanking.auth.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.tdtu.ibanking.auth.dto.BalanceChangeRequest;
 import com.tdtu.ibanking.auth.dto.BalanceResponse;
 import com.tdtu.ibanking.auth.dto.LoginRequest;
@@ -9,20 +28,8 @@ import com.tdtu.ibanking.auth.repository.UserRepository;
 import com.tdtu.ibanking.auth.security.JwtUtils;
 import com.tdtu.ibanking.auth.security.UserDetailsImpl;
 import com.tdtu.ibanking.auth.service.BalanceService;
-import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -67,6 +74,7 @@ public class AuthController {
         Map<String, Object> body = new HashMap<>();
         body.put("id", user.getId());
         body.put("email", user.getEmail());
+        body.put("fullName", user.getFullName());
         body.put("phone", user.getPhone());
         body.put("balance", user.getBalance());
         return ResponseEntity.ok(body);
