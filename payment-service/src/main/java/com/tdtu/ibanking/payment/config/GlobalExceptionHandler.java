@@ -1,6 +1,7 @@
 package com.tdtu.ibanking.payment.config;
 
 import com.tdtu.ibanking.payment.exception.InsufficientBalanceException;
+import com.tdtu.ibanking.payment.exception.InvalidOtpException;
 import com.tdtu.ibanking.payment.exception.RateLimitExceededException;
 import com.tdtu.ibanking.payment.exception.ServiceBusyException;
 import com.tdtu.ibanking.payment.exception.TransactionNotFoundException;
@@ -35,8 +36,16 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(RateLimitExceededException.class)
-    public ResponseEntity<Map<String, String>> handle(RateLimitExceededException e) {
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message", e.getMessage()));
+    public ResponseEntity<Map<String, Object>> handle(RateLimitExceededException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
+                .body(Map.of("message", e.getMessage(), "retryAfterSeconds", e.getRetryAfterSeconds()));
+    }
+
+    @ExceptionHandler(InvalidOtpException.class)
+    public ResponseEntity<Map<String, Object>> handle(InvalidOtpException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", e.getMessage(), "remainingAttempts", e.getRemainingAttempts()));
     }
 
     @ExceptionHandler(ServiceBusyException.class)

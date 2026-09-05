@@ -204,7 +204,22 @@ docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> GET "otp:<transactionId
 docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> --scan --pattern "otp:*"
 ```
 
-OTP hết hạn sau 5 phút; `initiate` giới hạn **3 lần/giờ/user**, `verify-otp` sai OTP tối đa **3 lần/giao dịch**.
+OTP hết hạn sau 5 phút; `initiate` giới hạn **3 lần/giờ/user**, `verify-otp` sai OTP tối đa **3 lần/giao dịch**
+(cộng thêm giới hạn **8 lần thất bại/giờ/user** tính chung mọi giao dịch).
+
+Response khi bị chặn có kèm số liệu để FE hiển thị, không cần đoán:
+- `429` (quá hạn gửi/thử OTP) → header `Retry-After` + body `retryAfterSeconds` (số giây còn phải chờ).
+- `409` (OTP sai nhưng chưa hết lượt) → body `remainingAttempts` (số lần thử còn lại).
+
+**Reset rate-limit khi test** (chỉ dùng khi dev/demo — hệ thống không cho tự đăng ký nên nhiều người
+thường phải dùng chung 1-2 tài khoản demo, dễ bị "hết lượt oan" do người khác test trước đó):
+
+```bash
+docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> DEL \
+  "otp:request:<userId>" "otp:attempt:<transactionId>" "otp:userfail:<userId>"
+# quên userId/transactionId thì scan:
+docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> --scan --pattern "otp:*"
+```
 
 ### 6.4 Endpoint hạ tầng
 

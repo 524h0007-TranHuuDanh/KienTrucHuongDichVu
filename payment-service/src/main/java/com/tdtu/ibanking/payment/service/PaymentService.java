@@ -47,7 +47,8 @@ public class PaymentService {
     public PaymentInitResponse initiatePayment(String mssv, UUID userId) {
         // P-18: chỉ CHECK quota ở đây, KHÔNG trừ
         if (!rateLimiterService.hasOtpQuota(userId)) {
-            throw new RateLimitExceededException("Bạn đã gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau.");
+            long retryAfter = rateLimiterService.getOtpRequestRetryAfterSeconds(userId);
+            throw new RateLimitExceededException("Bạn đã gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau.", retryAfter);
         }
 
         TuitionInfo tuitionInfo = tuitionServiceClient.getTuitionByMssv(mssv);
@@ -162,14 +163,33 @@ public class PaymentService {
             }
 
             if (!rateLimiterService.canAttemptOtp(transactionId, userId)) {
-                throw new RateLimitExceededException("Bạn đã thử OTP quá nhiều lần. Vui lòng tạo lại giao dịch.");
+                long retryAfter = rateLimiterService.getOtpAttemptRetryAfterSeconds(transactionId, userId);
+                // Phòng client cũ/gọi lại: giao dịch này không còn cách nào verify được nữa
+                // (OTP hết hạn 5 phút trước khi hạn mức user-level 1 giờ được gỡ) -> khai tử luôn,
+                // đừng để lại PENDING chờ mãi trong lịch sử.
+                String failMsg = "Bạn đã thử OTP quá nhiều lần. Vui lòng tạo lại giao dịch.";
+                transaction.setStatus(TransactionStatus.FAILED);
+                transaction.setErrorMessage(failMsg);
+                transactionRepository.save(transaction);
+                redisTemplate.delete(OTP_PREFIX + transactionId);
+                throw new RateLimitExceededException(failMsg, retryAfter);
             }
 
             String storedOtp = (String) redisTemplate.opsForValue().get(OTP_PREFIX + transactionId);
             // P-21: so sánh constant-time
             if (storedOtp == null || !constantTimeEquals(storedOtp, otp)) {
                 rateLimiterService.recordFailedAttempt(transactionId, userId);
-                throw new InsufficientBalanceException("OTP không hợp lệ hoặc đã hết hạn");
+                int remaining = rateLimiterService.getRemainingAttempts(transactionId);
+                if (remaining <= 0) {
+                    // Hết lượt ngay tại lần sai này -> khai tử ngay, đừng đợi lần bấm kế tiếp
+                    // (nếu không, initiate() sau đó vẫn thấy OTP key còn TTL và trả lại đúng
+                    // giao dịch chết này, làm user kẹt tới 5 phút).
+                    transaction.setStatus(TransactionStatus.FAILED);
+                    transaction.setErrorMessage("Nhập sai OTP quá số lần cho phép");
+                    transactionRepository.save(transaction);
+                    redisTemplate.delete(OTP_PREFIX + transactionId);
+                }
+                throw new InvalidOtpException("OTP không hợp lệ hoặc đã hết hạn", remaining);
             }
 
             return runSaga(transaction);
