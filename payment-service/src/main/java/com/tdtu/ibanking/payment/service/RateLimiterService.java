@@ -74,4 +74,29 @@ public class RateLimiterService {
     public void clearUserFails(UUID userId) {
         redisTemplate.delete(OTP_USER_FAIL_LIMIT + userId);
     }
+
+    // ===== Cho FE hiển thị đúng "còn bao nhiêu lần / còn bao nhiêu giây" =====
+
+    public int getRemainingAttempts(UUID transactionId) {
+        Integer count = (Integer) redisTemplate.opsForValue().get(OTP_ATTEMPT_LIMIT + transactionId);
+        int used = count == null ? 0 : count;
+        return Math.max(0, MAX_ATTEMPTS - used);
+    }
+
+    public long getOtpRequestRetryAfterSeconds(UUID userId) {
+        return ttlSeconds(OTP_REQUEST_LIMIT + userId);
+    }
+
+    public long getOtpAttemptRetryAfterSeconds(UUID transactionId, UUID userId) {
+        // canAttemptOtp() chặn nếu VƯỢT MỘT TRONG HAI giới hạn (theo giao dịch hoặc theo user),
+        // nên trả về TTL dài hơn — đó mới là thời gian thật sự phải chờ.
+        return Math.max(
+                ttlSeconds(OTP_ATTEMPT_LIMIT + transactionId),
+                ttlSeconds(OTP_USER_FAIL_LIMIT + userId));
+    }
+
+    private long ttlSeconds(String key) {
+        Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        return ttl != null && ttl > 0 ? ttl : 0;
+    }
 }
