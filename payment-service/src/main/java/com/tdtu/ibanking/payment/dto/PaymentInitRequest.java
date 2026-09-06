@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PaymentInitRequest {
     @NotBlank
-    @Pattern(regexp = "^[0-9]{3}[A-Za-z][0-9]{4}$", message = "MSSV không đúng định dạng (VD: 524H0088)")
+    @Pattern(regexp = "^[0-9]{3}[A-Za-z][0-9]{4}$", message = "MSSV không đúng định dạng (VD: 524H0001)")
     private String mssv;
 }

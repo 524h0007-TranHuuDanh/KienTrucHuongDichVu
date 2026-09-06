@@ -202,11 +202,14 @@ Seed tự động lúc khởi động (không cần gọi API nào):
 
 | MSSV | Họ tên | `GET /api/tuition/{mssv}` trả về | Dùng để |
 |---|---|---|---|
-| `524h0088` | `123456` | 100.000.000 | Happy path — học phí `524H0088` là 8.500.000, đủ tiền |
-| `524h0456` | `123456` | 15.000.000 | Học phí `524H0456` là 20.000.000 → dùng để test `409` thiếu số dư |
+| `524H0001` | Tran Huu Danh | HK1-2526 — 8.500.000 | Happy path |
+| `524H0002` | Ta Nguyen Thanh Quy | HK2-2425 — 5.000.000 | Nợ 2 kỳ (còn HK1-2526 9.200.000) → kiểm tra ưu tiên `due_date` cũ nhất |
+| `524H0003` | Le Minh Anh | — (`404`) | Đã đóng hết → test "không còn khoản chưa đóng" |
+| `524H0004` | Pham Thi Mai | HK1-2526 — 20.000.000 | Vượt số dư của `524h0456` → test `409` thiếu số dư |
+| `524H0005` | Vo Quoc Bao | HK1-2526 — 6.500.000 | Kỳ cũ HK2-2425 đã đóng → kiểm tra bỏ qua khoản đã thanh toán |
 
-MSSV có sẵn để test (`tuition-service/src/main/resources/data.sql`): `524H0088`, `524H0100` (nợ 2 kỳ),
-`524H0123` (đã đóng hết → 404), `524H0456` (số tiền lớn), `524H0789` (đã đóng kỳ cũ, còn nợ kỳ mới).
+**Demo concurrency:** cho `524h0088` và `524h0456` cùng `initiate` rồi `verify-otp` trên cùng một MSSV
+(ví dụ `524H0001`) — chỉ một giao dịch `SUCCESS`, giao dịch còn lại nhận `409` và được hoàn tiền tự động.
 
 **Lấy OTP khi demo** (khỏi cấu hình SMTP thật): OTP lưu ở Redis, key `otp:<transactionId>`.
 
