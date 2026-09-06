@@ -22,6 +22,24 @@ spring:
               - "*"
             allowCredentials: true
       routes:
+        - id: auth-service-docs
+          uri: http://auth-service:8081
+          predicates:
+            - Path=/v3/api-docs/auth
+          filters:
+            - SetPath=/v3/api-docs
+        - id: tuition-service-docs
+          uri: http://tuition-service:8082
+          predicates:
+            - Path=/v3/api-docs/tuition
+          filters:
+            - SetPath=/v3/api-docs
+        - id: payment-service-docs
+          uri: http://payment-service:8083
+          predicates:
+            - Path=/v3/api-docs/payment
+          filters:
+            - SetPath=/v3/api-docs
         - id: auth-service
           uri: http://auth-service:8081
           predicates:
@@ -34,6 +52,17 @@ spring:
           uri: http://payment-service:8083
           predicates:
             - Path=/api/payments/**
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: auth-service
+        url: /v3/api-docs/auth
+      - name: tuition-service
+        url: /v3/api-docs/tuition
+      - name: payment-service
+        url: /v3/api-docs/payment
 
 jwt:
   secret: ${JWT_SECRET}

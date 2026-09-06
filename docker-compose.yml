@@ -43,6 +43,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      OPENAPI_SERVER_URL: ${OPENAPI_SERVER_URL:-http://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +57,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      OPENAPI_SERVER_URL: ${OPENAPI_SERVER_URL:-http://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,6 +76,7 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      OPENAPI_SERVER_URL: ${OPENAPI_SERVER_URL:-http://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy

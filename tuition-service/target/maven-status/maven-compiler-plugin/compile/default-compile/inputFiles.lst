@@ -7,6 +7,7 @@ C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\t
 C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\tuition\dto\TuitionResponse.java
 C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\tuition\filter\JwtAuthenticationFilter.java
 C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\tuition\config\SecurityConfig.java
+C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\tuition\config\OpenApiConfig.java
 C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\tuition\exception\TuitionNotFoundException.java
 C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\tuition\dto\MarkPaidRequest.java
 C:\VS code\SOA\Backend-midterm\tuition-service\src\main\java\com\tdtu\ibanking\tuition\repository\StudentRepository.java

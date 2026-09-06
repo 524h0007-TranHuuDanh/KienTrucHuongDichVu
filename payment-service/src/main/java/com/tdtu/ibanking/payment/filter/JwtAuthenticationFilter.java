@@ -20,10 +20,28 @@ import java.util.UUID;
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final String[] DOC_PATH_PREFIXES = {
+            "/v3/api-docs", "/swagger-ui", "/swagger-ui.html"
+    };
+
     private final JwtUtil jwtUtil;
 
     public JwtAuthenticationFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
+    }
+
+    // Bộ lọc này chặn mọi request không có Bearer token, kể cả trước khi
+    // SecurityConfig kịp xét quyền -> phải bỏ qua các đường dẫn tài liệu,
+    // nếu không Swagger UI luôn nhận 401.
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        for (String prefix : DOC_PATH_PREFIXES) {
+            if (path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

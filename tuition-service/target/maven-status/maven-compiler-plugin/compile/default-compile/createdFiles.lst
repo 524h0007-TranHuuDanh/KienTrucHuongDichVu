@@ -2,6 +2,7 @@ com\tdtu\ibanking\tuition\repository\TuitionRepository.class
 com\tdtu\ibanking\tuition\TuitionApplication.class
 com\tdtu\ibanking\tuition\util\JwtUtil.class
 com\tdtu\ibanking\tuition\controller\TuitionController.class
+com\tdtu\ibanking\tuition\config\OpenApiConfig.class
 com\tdtu\ibanking\tuition\entity\Tuition.class
 com\tdtu\ibanking\tuition\repository\StudentRepository.class
 com\tdtu\ibanking\tuition\dto\TuitionDetailResponse.class

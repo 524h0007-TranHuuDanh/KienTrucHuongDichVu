@@ -36,7 +36,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 |---|---|---|---|
 | 3.1 | Đầy đủ API cho chức năng chính; URI + HTTP Method hợp lý (0.5) | ✅ | `POST /api/auth/login`, `GET /api/auth/users/{id}`, `POST /api/auth/users/{id}/debit\|credit`; `GET /api/tuition/{mssv}`, `/{mssv}/all`, `/id/{id}`, `POST /api/tuition/{id}/mark-paid`; `POST /api/payments/initiate`, `/verify-otp`, `GET /api/payments/history`. |
 | 3.2 | Request/Response model, HTTP Status Code, validation, error handling (0.5) | ✅ | DTO riêng cho mọi request/response (`dto/` ở cả 3 service). Validation Bean Validation: `PaymentInitRequest` (`@Pattern` MSSV), `OtpVerifyRequest` (`@Pattern ^[0-9]{6}$`), `BalanceChangeRequest` (`@DecimalMin`), `MarkPaidRequest` (`@NotNull`). `@RestControllerAdvice` ở cả 3 service map đúng mã: 400 / 401 / 403 / 404 / 409 / 429 (kèm `Retry-After`) / 503 / 500. |
-| — | *(ngoài rubric, cần cho mức 9.0+)* API documentation (Swagger/OpenAPI) | ❌ | Không có `springdoc-openapi` trong bất kỳ `pom.xml` nào. API chỉ được mô tả bằng bảng trong `README.md` mục 5. |
+| — | *(ngoài rubric, cần cho mức 9.0+)* API documentation (Swagger/OpenAPI) | ✅ | ✅ *(đã bổ sung 06/09/2026)* `springdoc-openapi 2.3.0`: bản `webmvc-ui` cho `auth-service` / `tuition-service` / `payment-service`, bản `webflux-ui` cho `api-gateway`. Swagger UI **gộp** tại `http://localhost:8080/swagger-ui.html`, dropdown chọn được 3 service; bấm **Authorize** dán JWT là gọi thử API ngay trên UI. 11 endpoint đã annotate `@Tag` / `@Operation` / `@ApiResponses`, tài liệu hoá đúng các mã `GlobalExceptionHandler` thực sự trả (400 / 401 / 403 / 404 / 409 / 429 kèm header `Retry-After` / 503 / 500). Spec tĩnh nộp kèm: `docs/openapi-auth.json`, `docs/openapi-tuition.json`, `docs/openapi-payment.json`. Không mở thêm port nào ra host — chỉ gateway `:8080`. |
 
 ---
 
@@ -121,7 +121,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 
 - **Đạt mức 7.0–7.9:** ✅ đủ nghiệp vụ chính, service phân rã & giao tiếp, có validation/error handling.
 - **Lên mức 8.0–8.9:** cần ✅ diagram kiến trúc dạng hình + ❌ **demo thành công cả hai tình huống concurrency** (hiện chưa có kịch bản/test chứng minh).
-- **Lên mức 9.0–9.5:** cần thêm ❌ **API documentation (Swagger/OpenAPI)** và ❌ **automated testing** (2 thư mục `src/test` đang rỗng).
+- **Lên mức 9.0–9.5:** ✅ **API documentation (Swagger/OpenAPI)** đã có (springdoc + Swagger UI gộp ở gateway); còn thiếu ❌ **automated testing** (2 thư mục `src/test` đang rỗng).
 - **Mức 10.0:** cần thêm ❌ integration/E2E test, ❌ concurrency test tự động, ❌ logging/tracing tập trung. (Idempotency ✅ và API Gateway ✅ thì đã có.)
 
 ---
@@ -137,5 +137,5 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 | 5 | ✅ **Đã xong** — `README.md` mục 6.3 khớp `data.sql`, `.env.example` đã có `INTERNAL_API_KEY` | TC 8.1 + tránh hỏng demo | — |
 | 6 | ❌ Viết **kịch bản/test concurrency** cho 2 tình huống của đề (script hoặc test tự động) | Điều kiện lên 8.0+ | Cao |
 | 7 | ❌ Thêm **automated test** (2 thư mục `src/test` đang rỗng) | Điều kiện lên 9.0+ | Trung bình |
-| 8 | ❌ Thêm **Swagger/OpenAPI** (`springdoc-openapi`) | Điều kiện lên 9.0+ | Trung bình |
+| 8 | ✅ **Đã xong** — `springdoc-openapi 2.3.0` ở 3 service + gateway, Swagger UI gộp tại `:8080/swagger-ui.html`, spec tĩnh `docs/openapi-{auth,tuition,payment}.json` | Điều kiện lên 9.0+ | — |
 | 9 | ❌ Logging/tracing tập trung (correlation id xuyên service) | Mức 10.0 | Thấp |

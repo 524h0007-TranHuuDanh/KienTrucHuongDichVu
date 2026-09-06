@@ -1,0 +1,377 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Tuition Service API",
+    "description": "Tra cứu học phí theo MSSV và gạch nợ học phí.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Qua API Gateway"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Tuition",
+      "description": "Tra cứu và gạch nợ học phí"
+    }
+  ],
+  "paths": {
+    "/api/tuition/{id}/mark-paid": {
+      "post": {
+        "tags": [
+          "Tuition"
+        ],
+        "summary": "Gạch nợ học phí (nội bộ)",
+        "description": "Đánh dấu khoản học phí đã được thanh toán và gắn transactionId. Chỉ payment-service được gọi bằng khóa nội bộ X-Internal-Api-Key; JWT người dùng không thay thế được.",
+        "operationId": "markPaid",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkPaidRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Dữ liệu không hợp lệ (ví dụ: transactionId là bắt buộc)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "403": {
+            "description": "Endpoint nội bộ, không được gọi trực tiếp",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "409": {
+            "description": "Khoản học phí đã được thanh toán, hoặc: Khoản học phí này vừa được một giao dịch khác xử lý, vui lòng thử lại.",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "200": {
+            "description": "Gạch nợ học phí thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuitionDetailResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Có lỗi xảy ra, vui lòng thử lại sau",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy khoản học phí",
+            "content": {
+              "application/json": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "internalApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/tuition/{mssv}": {
+      "get": {
+        "tags": [
+          "Tuition"
+        ],
+        "summary": "Tra cứu khoản học phí chưa đóng theo MSSV",
+        "description": "Trả về khoản học phí chưa thanh toán của sinh viên. Chấp nhận JWT người dùng HOẶC khóa nội bộ X-Internal-Api-Key (payment-service dùng khóa nội bộ).",
+        "operationId": "getUnpaidByMssv",
+        "parameters": [
+          {
+            "name": "mssv",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Token không hợp lệ hoặc đã hết hạn",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy khoản học phí chưa đóng cho MSSV này",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "200": {
+            "description": "Tra cứu học phí thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuitionResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Có lỗi xảy ra, vui lòng thử lại sau",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "403": {
+            "description": "Khóa nội bộ được gắn nhưng không hợp lệ: Endpoint nội bộ, không được gọi trực tiếp",
+            "content": {
+              "application/json": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "internalApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/tuition/{mssv}/all": {
+      "get": {
+        "tags": [
+          "Tuition"
+        ],
+        "summary": "Lấy toàn bộ học phí của một MSSV",
+        "description": "Trả về danh sách tất cả khoản học phí (đã đóng và chưa đóng) của sinh viên. Chỉ chấp nhận JWT người dùng.",
+        "operationId": "getAllByMssv",
+        "parameters": [
+          {
+            "name": "mssv",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Token không hợp lệ hoặc đã hết hạn",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy sinh viên hoặc khoản học phí",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "200": {
+            "description": "Lấy danh sách học phí thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TuitionResponse"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Có lỗi xảy ra, vui lòng thử lại sau",
+            "content": {
+              "application/json": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/tuition/id/{id}": {
+      "get": {
+        "tags": [
+          "Tuition"
+        ],
+        "summary": "Lấy chi tiết học phí theo id",
+        "description": "Trả về đầy đủ thông tin một khoản học phí theo id. Chấp nhận JWT người dùng HOẶC khóa nội bộ X-Internal-Api-Key (payment-service dùng khóa nội bộ).",
+        "operationId": "getById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Token không hợp lệ hoặc đã hết hạn",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "500": {
+            "description": "Có lỗi xảy ra, vui lòng thử lại sau",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy khoản học phí",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "200": {
+            "description": "Lấy chi tiết học phí thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuitionDetailResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Khóa nội bộ được gắn nhưng không hợp lệ: Endpoint nội bộ, không được gọi trực tiếp",
+            "content": {
+              "application/json": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "internalApiKey": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MarkPaidRequest": {
+        "required": [
+          "transactionId"
+        ],
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "TuitionDetailResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mssv": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "paid": {
+            "type": "boolean"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "TuitionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mssv": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "paid": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "JWT lấy từ POST /api/auth/login",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "internalApiKey": {
+        "type": "apiKey",
+        "description": "Khóa nội bộ, chỉ dùng cho lời gọi service-to-service",
+        "name": "X-Internal-Api-Key",
+        "in": "header"
+      }
+    }
+  }
+}
