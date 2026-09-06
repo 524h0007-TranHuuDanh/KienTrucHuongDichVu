@@ -243,7 +243,93 @@ docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> --scan --pattern "otp:*
 
 ---
 
-## 7. Cấu trúc thư mục
+## 7. Kiểm thử tự động
+
+### 7.1. Yêu cầu
+
+Test dùng **Testcontainers**: mỗi lần chạy sẽ tự dựng Postgres (và Redis cho `payment-service`)
+trong Docker rồi tự xoá. Vì vậy **Docker phải đang chạy**, nhưng KHÔNG cần `docker compose up`
+— test hoàn toàn độc lập với hệ thống đang chạy, dùng cổng ngẫu nhiên nên không đụng nhau.
+
+Cố ý **không dùng H2**: `TuitionRepository.findFirstUnpaid` là native query Postgres (`LIMIT 1`),
+và `SELECT ... FOR UPDATE` trên H2 không phản ánh đúng hành vi khoá — test đồng thời sẽ *xanh giả*.
+
+### 7.2. Chạy test
+
+```bash
+mvn -f auth-service/pom.xml test        # 10 test
+mvn -f tuition-service/pom.xml test     # 11 test
+mvn -f payment-service/pom.xml test     #  7 test
+```
+
+Mỗi module chạy khoảng 10–15 giây. Không có parent pom aggregator nên phải chạy từng module.
+Surefire đã được cấu hình chạy cả `*Test` lẫn `*IT`.
+
+| Module | Test | Nội dung chính |
+|---|---|---|
+| `auth-service` | `BalanceServiceTest` (5) | Trừ tiền, idempotency theo `transaction_id`, thiếu số dư, hoàn tiền sai, giao dịch đã chốt |
+| | `BalanceConcurrencyIT` (1) | **Tình huống tranh chấp 1** — 10 thread cùng trừ tiền một tài khoản |
+| | `AuthControllerIT` (4) | Đăng nhập đúng/sai, JWT người khác → 403, thiếu internal key → 403 |
+| `tuition-service` | `TuitionServiceTest` (7) | Học phí đến hạn sớm nhất, không tìm thấy, đã đóng hết, `mark-paid` + idempotency |
+| | `TuitionMarkPaidConcurrencyIT` (1) | **Tình huống tranh chấp 2** — 10 thread cùng gạch nợ một khoản học phí |
+| | `TuitionControllerIT` (3) | 401 khi thiếu JWT, 403 khi thiếu internal key, 200 khi đủ |
+| `payment-service` | `PaymentServiceTest` (5) | Sinh OTP + TTL, sai OTP 3 lần → FAILED, luồng thành công, **saga bù trừ**, chống xử lý lặp |
+| | `RateLimitTest` (2) | Quá 3 OTP/giờ → 429; không trừ quota khi gửi OTP thất bại |
+
+### 7.3. Cô lập dữ liệu
+
+Test đa luồng **không dùng được `@Transactional`** (thread con chạy trong transaction khác nên
+không thấy dữ liệu chưa commit của test, và rollback cũng không dọn được thứ thread con đã commit).
+Do đó không test class nào dùng `@Transactional`; thay vào đó mỗi test **tự tạo dữ liệu riêng**
+với `UUID.randomUUID()` và tự dọn trong `@BeforeEach`/`@AfterEach`, không truncate bảng.
+Các dòng seed của `data.sql` (524H0002, 524H0003) chỉ được **đọc**, không bao giờ bị sửa.
+
+Để 10 thread chạy **thật sự đồng thời** (vòng lặp `submit()` thông thường có thể chạy tuần tự,
+khiến test xanh cả khi khoá đã hỏng), hai test tranh chấp dùng *starting gate* 3 latch:
+thread pool đủ 10 chỗ, `ready` để xác nhận cả 10 thread đã tới vạch, `start` để thả cùng lúc,
+`done` để bắt deadlock thay vì treo.
+
+### 7.4. Kiểm thử đồng thời đầu-cuối (E2E)
+
+```bash
+docker compose up -d
+bash scripts/concurrency-test.sh
+```
+
+Script gọi thật qua gateway `:8080`, lấy OTP từ Redis, tự dựng lại dữ liệu fixture trước mỗi
+kịch bản (nên chạy lại được nhiều lần), in bảng PASS/FAIL và trả exit code khác 0 nếu có kịch bản hỏng.
+
+- **Kịch bản A** — một tài khoản, 2 giao dịch song song, tổng tiền vượt số dư → đúng 1 SUCCESS,
+  số dư không âm, sổ sách khớp.
+- **Kịch bản B** — hai tài khoản cùng đóng một khoản học phí → đúng 1 SUCCESS, học phí chỉ gạch
+  nợ một lần, người thua được hoàn tiền đủ (script kiểm tận bút toán `balance_entries`: phải có
+  đủ cặp DEBIT + CREDIT bằng nhau).
+
+### 7.5. Chứng minh test tranh chấp không "xanh giả"
+
+Cách kiểm chứng test thật sự có giá trị — gỡ cơ chế bảo vệ rồi chạy lại, test **phải đỏ**:
+
+| Gỡ gì | Kết quả |
+|---|---|
+| `@Lock(PESSIMISTIC_WRITE)` khỏi `UserRepository.findByIdForUpdate` | `BalanceConcurrencyIT` ĐỎ — `expected: 5 but was: 10`, cả 10 thread trừ được 20.000.000 từ số dư 10.000.000 |
+| `@Lock` khỏi `TuitionRepository.findByIdForUpdate` **và** `@Version` khỏi `Tuition` | `TuitionMarkPaidConcurrencyIT` ĐỎ — `expected: 1 but was: 10` |
+
+Lưu ý quan trọng: với `tuition-service`, **chỉ gỡ `@Lock` là chưa đủ để test đỏ** — `@Version`
+(optimistic lock) vẫn giữ được bất biến "một người thắng", chỉ khác loại exception mà 9 thread thua
+nhận được (`ObjectOptimisticLockingFailureException` thay vì `TuitionAlreadyPaidException`).
+Nói cách khác khoản học phí được bảo vệ bằng **hai lớp độc lập**.
+
+### 7.6. Hai vướng mắc môi trường đã xử lý sẵn
+
+- **Docker Engine ≥ 25**: Testcontainers 1.19.7 đàm phán Docker API 1.32 trong khi engine mới yêu cầu
+  tối thiểu 1.40 → lỗi `Could not find a valid Docker environment`. Các lớp base test đã tự đặt
+  `api.version=1.41` nếu chưa được cấu hình.
+- **JDK > 22**: Byte Buddy đi kèm Spring Boot 3.2.4 chưa biết bytecode mới nên `@MockBean` lỗi.
+  `payment-service` đã bật `-Dnet.bytebuddy.experimental=true` trong surefire (chỉ phạm vi test).
+
+---
+
+## 8. Cấu trúc thư mục
 
 ```
 ├── api-gateway/          Spring Cloud Gateway — JWT filter + routing + CORS
@@ -253,6 +339,8 @@ docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> --scan --pattern "otp:*
 ├── notification-service/ Consumer RabbitMQ, gửi email
 ├── docker-compose.yml    Toàn bộ hạ tầng + 5 service
 ├── init-db.sql           Tạo 3 database lúc Postgres khởi động lần đầu
+├── scripts/
+│   └── concurrency-test.sh   Kiểm thử E2E 2 tình huống tranh chấp (mục 7.4)
 ├── .env.example          Mẫu biến môi trường (copy thành .env)
 └── docs/
     ├── MidtermVIHK12627.md      Đề bài gốc
@@ -268,7 +356,7 @@ Mỗi service theo cấu trúc Spring Boot chuẩn:
 
 ---
 
-## 8. Ghi chú cho người đọc code lần đầu (kể cả AI agent)
+## 9. Ghi chú cho người đọc code lần đầu (kể cả AI agent)
 
 - **`code là nguồn sự thật`**, không phải `docs/plan.md` hay `MidtermVIHK12627.md`. Các file trong `docs/`
   là nhật ký thiết kế/nhật ký sửa lỗi tại từng thời điểm, một số quyết định đã thay đổi sau đó (ví dụ mục 4

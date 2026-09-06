@@ -69,7 +69,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 | 6.1 | Giao dịch đảm bảo nhất quán khi cập nhật dữ liệu liên quan (0.5) | ✅ | `@Transactional` trong `BalanceService` / `TuitionService`. Xuyên service dùng **saga bù trừ**: `mark-paid` thất bại → `credit` hoàn tiền đầy đủ → `FAILED`. Idempotency 2 lớp: `balance_entries(transaction_id, type) UNIQUE` (không trừ/hoàn 2 lần) và `tuitions.transaction_id UNIQUE` + re-check trong `markPaid`. Retry mạng ×3, timeout thì đọc lại trạng thái thật trước khi quyết định hoàn tiền. |
 | 6.2 | Nhiều giao dịch đồng thời trên cùng một tài khoản, không chi vượt số dư (0.5) | ✅ | Hai lớp: **Redisson distributed lock** `lock:account:{userId}` bao trọn `verify-otp` (`PaymentService.verifyOtpAndPay`, `tryLock(5s)`, watchdog gia hạn) + **pessimistic lock DB** `UserRepository.findByIdForUpdate` (`SELECT … FOR UPDATE`) rồi mới so `balance >= amount` trong `BalanceService.debit`. |
 | 6.3 | Nhiều tài khoản cùng thanh toán một khoản học phí, chỉ 1 lần thành công (0.5) | ✅ | `TuitionRepository.findByIdForUpdate` (`PESSIMISTIC_WRITE`) + re-check `paid` **trong lock** + `UNIQUE(transaction_id)` + `@Version`. Người thua nhận `409` → `payment-service` tự động `refundAndFail` (hoàn tiền). `initiatePayment` còn chặn sớm khi khoản học phí đang có giao dịch OTP còn hiệu lực của người khác. |
-| — | *(mức 10.0)* Concurrency test / integration test tự động | ❌ | `auth-service/src/test` và `tuition-service/src/test` **rỗng**; `payment-service` không có thư mục test. Chưa có script chứng minh 2 tình huống race → khi demo phải chạy tay (2 terminal / Postman runner). |
+| — | *(mức 10.0)* Concurrency test / integration test tự động | ✅ | ✅ *(đã bổ sung 06/09/2026)* **28 test tự động** chạy trên Testcontainers `postgres:15-alpine` + `redis:7-alpine` (cố ý không dùng H2 vì `findFirstUnpaid` là native query và `FOR UPDATE` trên H2 cho kết quả xanh giả): `auth-service` 10, `tuition-service` 11, `payment-service` 7 — tất cả PASS, mỗi module ~10–13 giây. Hai tình huống race của đề có test riêng: `BalanceConcurrencyIT` (6.2) và `TuitionMarkPaidConcurrencyIT` (6.3), dùng *starting gate* 3 latch để bảo đảm 10 thread chạy đồng thời thật. Thêm `scripts/concurrency-test.sh` chạy E2E qua gateway `:8080` cho cả 2 kịch bản (PASS/PASS, exit 0) → **không còn phải demo tay bằng 2 terminal**. Xem README mục 7. |
 
 ---
 
@@ -120,8 +120,8 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 ### Đối chiếu "Mức điểm mục tiêu"
 
 - **Đạt mức 7.0–7.9:** ✅ đủ nghiệp vụ chính, service phân rã & giao tiếp, có validation/error handling.
-- **Lên mức 8.0–8.9:** cần ✅ diagram kiến trúc dạng hình + ❌ **demo thành công cả hai tình huống concurrency** (hiện chưa có kịch bản/test chứng minh).
-- **Lên mức 9.0–9.5:** ✅ **API documentation (Swagger/OpenAPI)** đã có (springdoc + Swagger UI gộp ở gateway); còn thiếu ❌ **automated testing** (2 thư mục `src/test` đang rỗng).
+- **Lên mức 8.0–8.9:** ✅ **demo được cả hai tình huống concurrency** (test tự động + `scripts/concurrency-test.sh`); còn lại ❌ diagram kiến trúc dạng hình.
+- **Lên mức 9.0–9.5:** ✅ **API documentation (Swagger/OpenAPI)** đã có (springdoc + Swagger UI gộp ở gateway) và ✅ **automated testing** đã có (28 test, cả 3 module PASS).
 - **Mức 10.0:** cần thêm ❌ integration/E2E test, ❌ concurrency test tự động, ❌ logging/tracing tập trung. (Idempotency ✅ và API Gateway ✅ thì đã có.)
 
 ---
@@ -135,7 +135,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 | 3 | ⚠️ Hoàn thiện **ERD** (thêm `paymentdb.transactions`, xuất thành lược đồ riêng thay vì ASCII trong `plan.md`) | 0.5 (TC 1) | Bắt buộc |
 | 4 | ⚠️ Xuất **Architecture Diagram** thành ảnh/draw.io | Gỡ trần 8.0 (TC 2) | Cao |
 | 5 | ✅ **Đã xong** — `README.md` mục 6.3 khớp `data.sql`, `.env.example` đã có `INTERNAL_API_KEY` | TC 8.1 + tránh hỏng demo | — |
-| 6 | ❌ Viết **kịch bản/test concurrency** cho 2 tình huống của đề (script hoặc test tự động) | Điều kiện lên 8.0+ | Cao |
-| 7 | ❌ Thêm **automated test** (2 thư mục `src/test` đang rỗng) | Điều kiện lên 9.0+ | Trung bình |
+| 6 | ✅ **Đã xong** — `BalanceConcurrencyIT` + `TuitionMarkPaidConcurrencyIT` (10 thread, starting gate) và `scripts/concurrency-test.sh` chạy E2E cả 2 kịch bản qua gateway, in PASS/FAIL + exit code | Điều kiện lên 8.0+ | — |
+| 7 | ✅ **Đã xong** — 28 test trên Testcontainers (auth 10 / tuition 11 / payment 7), gồm cả test saga bù trừ và rate-limit; `mvn test` xanh ở cả 3 module | Điều kiện lên 9.0+ | — |
 | 8 | ✅ **Đã xong** — `springdoc-openapi 2.3.0` ở 3 service + gateway, Swagger UI gộp tại `:8080/swagger-ui.html`, spec tĩnh `docs/openapi-{auth,tuition,payment}.json` | Điều kiện lên 9.0+ | — |
 | 9 | ❌ Logging/tracing tập trung (correlation id xuyên service) | Mức 10.0 | Thấp |
