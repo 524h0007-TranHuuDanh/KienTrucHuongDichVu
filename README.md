@@ -188,7 +188,19 @@ Lần đầu chạy (hoặc sau khi đổi schema): `docker compose down -v` tr�
 
 Seed tự động lúc khởi động (không cần gọi API nào):
 
-| Username | Password | Số dư ban đầu | Ghi chú |
+**Tài khoản đăng nhập** (`auth-service/.../config/DemoDataSeeder.java`):
+
+| Username | Password | Số dư ban đầu | Dùng để |
+|---|---|---|---|
+| `524h0088` | `123456` | 100.000.000 | Happy path — đủ tiền cho mọi khoản học phí demo |
+| `524h0456` | `123456` | 15.000.000 | Test `409` thiếu số dư khi đóng cho MSSV `524H0004` (20.000.000) |
+
+> `username` là tài khoản iBanking, **không phải MSSV**. Ai đăng nhập cũng có thể đóng học phí cho bất kỳ
+> MSSV nào — đúng nghiệp vụ "người thân đóng hộ" của đề bài.
+
+**MSSV để tra cứu** (`tuition-service/src/main/resources/data.sql`):
+
+| MSSV | Họ tên | `GET /api/tuition/{mssv}` trả về | Dùng để |
 |---|---|---|---|
 | `524h0088` | `123456` | 100.000.000 | Happy path — học phí `524H0088` là 8.500.000, đủ tiền |
 | `524h0456` | `123456` | 15.000.000 | Học phí `524H0456` là 20.000.000 → dùng để test `409` thiếu số dư |
