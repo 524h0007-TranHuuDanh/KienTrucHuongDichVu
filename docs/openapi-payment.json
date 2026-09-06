@@ -1,0 +1,416 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Payment Service API",
+    "description": "Khởi tạo thanh toán học phí, xác thực OTP và tra cứu lịch sử giao dịch.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Qua API Gateway"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Payment",
+      "description": "Thanh toán học phí và xác thực OTP"
+    }
+  ],
+  "paths": {
+    "/api/payments/verify-otp": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Xác thực OTP và hoàn tất thanh toán",
+        "description": "Kiểm tra mã OTP của giao dịch, trừ tiền trong tài khoản và đánh dấu học phí đã đóng. Giao dịch phải thuộc về người dùng đang đăng nhập (userId lấy từ JWT).",
+        "operationId": "verifyOtp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "description": "Không tìm thấy giao dịch",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Thanh toán thành công",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi không mong đợi từ hệ thống",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "OTP sai (body kèm remainingAttempts) hoặc số dư không đủ",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ (thiếu mã giao dịch hoặc OTP phải là 6 chữ số)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Giao dịch không thuộc về người dùng hiện tại",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Hệ thống đang bận, vui lòng thử lại sau",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Vượt quá giới hạn số lần yêu cầu, vui lòng thử lại sau",
+            "headers": {
+              "Retry-After": {
+                "description": "Số giây phải chờ trước khi thử lại",
+                "style": "simple",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/initiate": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Khởi tạo giao dịch thanh toán học phí",
+        "description": "Tạo giao dịch ở trạng thái chờ cho khoản học phí của MSSV được gửi lên, kiểm tra số dư của người dùng đang đăng nhập và gửi mã OTP qua email. userId được lấy từ JWT, không nhận từ phía client.",
+        "operationId": "initiatePayment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentInitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Khởi tạo giao dịch thành công, OTP đã được gửi",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentInitResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Số dư không đủ để thanh toán học phí",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi không mong đợi từ hệ thống",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy học phí hoặc giao dịch tương ứng",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Hệ thống đang bận, vui lòng thử lại sau",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ (MSSV không đúng định dạng, VD: 524H0001)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Vượt quá giới hạn số lần yêu cầu, vui lòng thử lại sau",
+            "headers": {
+              "Retry-After": {
+                "description": "Số giây phải chờ trước khi thử lại",
+                "style": "simple",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/history": {
+      "get": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Lịch sử giao dịch của người dùng",
+        "description": "Trả về danh sách giao dịch thanh toán học phí của người dùng đang đăng nhập (userId lấy từ JWT, không nhận từ phía client).",
+        "operationId": "getHistory",
+        "responses": {
+          "500": {
+            "description": "Lỗi không mong đợi từ hệ thống",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Danh sách giao dịch",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransactionHistoryItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OtpVerifyRequest": {
+        "required": [
+          "otp",
+          "transactionId"
+        ],
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "otp": {
+            "pattern": "^[0-9]{6}$",
+            "type": "string"
+          }
+        }
+      },
+      "PaymentSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "amountPaid": {
+            "type": "number"
+          },
+          "remainingBalance": {
+            "type": "number"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PaymentInitRequest": {
+        "required": [
+          "mssv"
+        ],
+        "type": "object",
+        "properties": {
+          "mssv": {
+            "pattern": "^[0-9]{3}[A-Za-z][0-9]{4}$",
+            "type": "string"
+          }
+        }
+      },
+      "PaymentInitResponse": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "balance": {
+            "type": "number"
+          }
+        }
+      },
+      "TransactionHistoryItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tuitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "SUCCESS",
+              "FAILED"
+            ]
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "JWT lấy từ POST /api/auth/login",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "internalApiKey": {
+        "type": "apiKey",
+        "description": "Khóa nội bộ, chỉ dùng cho lời gọi service-to-service",
+        "name": "X-Internal-Api-Key",
+        "in": "header"
+      }
+    }
+  }
+}

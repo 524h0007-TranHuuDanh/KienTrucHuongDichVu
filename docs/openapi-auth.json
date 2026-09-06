@@ -1,0 +1,336 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Auth Service API",
+    "description": "Xác thực người dùng (JWT) và quản lý số dư tài khoản.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Qua API Gateway"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Đăng nhập và quản lý số dư"
+    }
+  ],
+  "paths": {
+    "/api/auth/users/{id}/debit": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Trừ tiền tài khoản (nội bộ)",
+        "description": "Chỉ dành cho lời gọi service-to-service, bắt buộc header X-Internal-Api-Key. Idempotent theo transactionId: gọi lại cùng transactionId chỉ trả về số dư hiện tại.",
+        "operationId": "debit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BalanceChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Dữ liệu không hợp lệ (amount phải lớn hơn 0, thiếu transactionId)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "403": {
+            "description": "Endpoint nội bộ, không được gọi trực tiếp (thiếu hoặc sai khóa nội bộ)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Người dùng không tồn tại",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "409": {
+            "description": "Số dư không đủ hoặc giao dịch đã được chốt trước đó",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "200": {
+            "description": "Trừ tiền thành công, trả về số dư mới",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "internalApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/auth/users/{id}/credit": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Hoàn tiền vào tài khoản (nội bộ)",
+        "description": "Chỉ dành cho lời gọi service-to-service, bắt buộc header X-Internal-Api-Key. Dùng để hoàn tiền khi giao dịch thất bại; idempotent theo transactionId.",
+        "operationId": "credit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BalanceChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Dữ liệu không hợp lệ (amount phải lớn hơn 0, thiếu transactionId)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "200": {
+            "description": "Hoàn tiền thành công, trả về số dư mới",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Endpoint nội bộ, không được gọi trực tiếp (thiếu hoặc sai khóa nội bộ)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Người dùng không tồn tại",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "409": {
+            "description": "Hoàn tiền không hợp lệ hoặc giao dịch đã được chốt trước đó",
+            "content": {
+              "application/json": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "internalApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Đăng nhập",
+        "description": "Xác thực username/password và trả về JWT dùng cho các lời gọi tiếp theo. Endpoint công khai, không cần token.",
+        "operationId": "authenticateUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Đăng nhập thành công, trả về JWT kèm thông tin tài khoản",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sai mật khẩu hoặc tài khoản không tồn tại: {\"error\":\"Sai mật khẩu!\"}",
+            "content": {
+              "application/json": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/users/{userId}": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Xem thông tin tài khoản",
+        "description": "Trả về id, email, fullName, phone và balance. Chấp nhận JWT của chính chủ tài khoản HOẶC khóa nội bộ X-Internal-Api-Key (lời gọi service-to-service).",
+        "operationId": "getUserInfo",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Không tìm thấy tài khoản",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "401": {
+            "description": "Token không hợp lệ hoặc đã hết hạn",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "403": {
+            "description": "Không có quyền truy cập thông tin tài khoản này",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "200": {
+            "description": "Thông tin tài khoản",
+            "content": {
+              "application/json": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "internalApiKey": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BalanceChangeRequest": {
+        "required": [
+          "amount",
+          "transactionId"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "exclusiveMinimum": true,
+            "type": "number"
+          },
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "BalanceResponse": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "balance": {
+            "type": "number"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "balance": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "JWT lấy từ POST /api/auth/login",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "internalApiKey": {
+        "type": "apiKey",
+        "description": "Khóa nội bộ, chỉ dùng cho lời gọi service-to-service",
+        "name": "X-Internal-Api-Key",
+        "in": "header"
+      }
+    }
+  }
+}

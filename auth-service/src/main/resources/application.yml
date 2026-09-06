@@ -22,3 +22,9 @@ internal:
   api-key: ${INTERNAL_API_KEY}
 
 # đã đổi lại pass word cho đúng P24
+
+# URL gốc hiển thị trong Swagger UI (trường `servers` của spec).
+# Gateway không giữ Host header gốc nên phải khai báo tường minh,
+# nếu không Swagger UI sẽ gọi thẳng host nội bộ và Try-it-out sẽ hỏng.
+openapi:
+  server-url: ${OPENAPI_SERVER_URL:http://localhost:8080}

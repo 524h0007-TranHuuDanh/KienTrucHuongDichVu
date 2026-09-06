@@ -22,8 +22,29 @@ import java.util.Set;
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/api/auth/login"
+            "/api/auth/login",
+            "/swagger-ui.html"
     );
+
+    // Các đường dẫn tài liệu API (Swagger/OpenAPI) được mở công khai,
+    // mọi endpoint nghiệp vụ khác vẫn bắt buộc phải có JWT hợp lệ.
+    private static final List<String> PUBLIC_PATH_PREFIXES = List.of(
+            "/v3/api-docs",
+            "/swagger-ui",
+            "/webjars/"
+    );
+
+    private boolean isPublic(String path) {
+        if (PUBLIC_PATHS.contains(path)) {
+            return true;
+        }
+        for (String prefix : PUBLIC_PATH_PREFIXES) {
+            if (path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Value("${jwt.secret}")
     private String secret;
@@ -44,8 +65,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        // Bỏ qua xác thực cho login
-        if (PUBLIC_PATHS.contains(path)) {
+        // Bỏ qua xác thực cho login và các đường dẫn tài liệu API
+        if (isPublic(path)) {
             return chain.filter(exchange);
         }
 
