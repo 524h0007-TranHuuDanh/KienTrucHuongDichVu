@@ -95,6 +95,8 @@ public class PaymentService {
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
         transaction.setTuitionId(tuitionInfo.getId());
+        transaction.setMssv(tuitionInfo.getMssv());
+        transaction.setStudentName(tuitionInfo.getStudentName());
         transaction.setAmount(tuitionInfo.getAmount());
         transaction.setStatus(TransactionStatus.PENDING);
         transaction = transactionRepository.save(transaction);
@@ -395,7 +397,7 @@ public class PaymentService {
     public List<TransactionHistoryItem> getTransactionHistory(UUID userId) {
         return transactionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(t -> new TransactionHistoryItem(
-                        t.getId(), t.getTuitionId(), t.getAmount(), t.getStatus(),
+                        t.getId(), t.getTuitionId(), t.getMssv(), t.getStudentName(), t.getAmount(), t.getStatus(),
                         t.getErrorMessage(), t.getCreatedAt(), t.getUpdatedAt()))
                 .toList();
     }

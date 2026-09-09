@@ -25,6 +25,15 @@ public class Transaction {
     @Column(name = "tuition_id", nullable = false)
     private UUID tuitionId;
 
+    // Snapshot MSSV + ho ten sinh vien tai thoi diem khoi tao giao dich, de lich su
+    // hien "da dong cho ai" ma khong phai goi nguoc tuition-service cho tung dong (N+1).
+    // Nullable: cac giao dich tao truoc thay doi nay khong co du lieu nay.
+    @Column(name = "mssv", length = 20)
+    private String mssv;
+
+    @Column(name = "student_name")
+    private String studentName;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 

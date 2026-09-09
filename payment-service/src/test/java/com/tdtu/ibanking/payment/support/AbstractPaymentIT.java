@@ -145,7 +145,7 @@ public abstract class AbstractPaymentIT {
     }
 
     protected TuitionInfo unpaidTuition(String mssv, BigDecimal amount) {
-        return new TuitionInfo(UUID.randomUUID(), mssv, amount, false);
+        return new TuitionInfo(UUID.randomUUID(), mssv, "Nguyen Van Test", amount, false);
     }
 
     protected UserInfo userWithBalance(UUID userId, BigDecimal balance) {

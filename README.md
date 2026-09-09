@@ -61,6 +61,9 @@ gọi được từ trong mạng Docker nội bộ — xem `docker-compose.yml`.
 - **PostgreSQL 15**, **Redis 7**, **RabbitMQ 3** (management plugin)
 - **JJWT 0.11.5** (tự ký/verify JWT, không dùng Keycloak/Auth0)
 - **Redisson 3.27.2** — distributed lock cấp tài khoản khi xác thực OTP
+- **springdoc-openapi 2.3.0** — Swagger UI gộp tại `:8080/swagger-ui.html`
+- **JUnit 5 + Testcontainers 1.19.7 + AssertJ + Mockito** — 28 test tự động chạy trên Postgres/Redis **thật**
+  (không dùng H2, lý do ở mục 7.1)
 - **Docker Compose** để chạy toàn bộ hệ thống
 
 ---
@@ -344,6 +347,11 @@ Nói cách khác khoản học phí được bảo vệ bằng **hai lớp độ
 ├── .env.example          Mẫu biến môi trường (copy thành .env)
 └── docs/
     ├── MidtermVIHK12627.md      Đề bài gốc
+    ├── Rubric.md                Đối chiếu từng tiêu chí rubric + danh sách việc còn thiếu
+    ├── rubric-midterm.pdf       Phiếu chấm điểm gốc của môn
+    ├── openapi-auth.json        Spec OpenAPI tĩnh, xuất sẵn để nộp
+    ├── openapi-tuition.json
+    ├── openapi-payment.json
     ├── plan.md                  Kế hoạch thiết kế tuition-service + saga (ERD, API contract, ...)
     ├── LOI-PAYMENT-SERVICE.md   Danh sách lỗi đã phát hiện ở payment-service (P-01 → P-2x)
     ├── CHANGES-AUTH-PAYMENT.md  Nhật ký thay đổi khi tách số dư/học phí ra khỏi payment-service
@@ -353,6 +361,10 @@ Nói cách khác khoản học phí được bảo vệ bằng **hai lớp độ
 Mỗi service theo cấu trúc Spring Boot chuẩn:
 `controller/` → `service/` → `repository/` (JPA) + `entity/`, cùng `dto/`, `exception/`, `config/`,
 `client/` (RestTemplate client gọi service khác, chỉ có ở `payment-service`).
+
+Test nằm ở `src/test/java/...` của ba service `auth-service`, `tuition-service`, `payment-service`
+(xem bảng ở mục 7.2). Mỗi module có một lớp base dựng Testcontainers dùng chung
+(`AbstractPostgresIT` / `AbstractPaymentIT`) để Spring context chỉ khởi động một lần cho cả module.
 
 ---
 
