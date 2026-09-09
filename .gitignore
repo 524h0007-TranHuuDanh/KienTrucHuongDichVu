@@ -15,6 +15,7 @@ credentials*.json
 
 # ===== Claude Code (không push) =====
 .claude/
+CLAUDE.md
 
 # ===== Java / Maven =====
 target/

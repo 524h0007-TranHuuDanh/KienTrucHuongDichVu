@@ -15,6 +15,8 @@ import java.util.UUID;
 public class TransactionHistoryItem {
     private UUID id;
     private UUID tuitionId;
+    private String mssv;
+    private String studentName;
     private BigDecimal amount;
     private TransactionStatus status;
     private String errorMessage;

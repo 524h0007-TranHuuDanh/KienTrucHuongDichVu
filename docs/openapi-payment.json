@@ -372,6 +372,18 @@
             "type": "string",
             "format": "uuid"
           },
+          "mssv": {
+            "type": "string",
+            "nullable": true,
+            "description": "MSSV cua khoan hoc phi da thanh toan (null voi giao dich tao truoc 09/09/2026)",
+            "example": "524H0001"
+          },
+          "studentName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ho ten sinh vien, chup lai luc khoi tao giao dich",
+            "example": "Tran Huu Danh"
+          },
           "amount": {
             "type": "number"
           },

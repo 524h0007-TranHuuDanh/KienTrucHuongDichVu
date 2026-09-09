@@ -7,6 +7,12 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 
 **Ước lượng tổng: ~7.0 / 10** (chi tiết ở mục "Bảng tổng hợp điểm").
 
+> **Đã kiểm chứng bằng cách chạy thật, ngày 07/09/2026** — không chỉ đọc code:
+> `mvn test` xanh ở cả 3 module (**auth 10 / tuition 11 / payment 7 = 28 test, 0 failure, 0 error**, `BUILD SUCCESS` ×3),
+> và `bash scripts/concurrency-test.sh` cho **PASS cả 2 kịch bản, exit code 0**. Kịch bản B lần chạy đó rơi đúng vào
+> nhánh khó nhất (cả hai người cùng lọt qua `initiate`), nên **saga bù trừ đã được thực thi thật**: trừ 6.500.000
+> rồi hoàn lại đủ 6.500.000, người thua giữ nguyên số dư.
+
 ---
 
 ## 1. Phân tích nghiệp vụ & UML — `…… / 1.0`
@@ -122,7 +128,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 - **Đạt mức 7.0–7.9:** ✅ đủ nghiệp vụ chính, service phân rã & giao tiếp, có validation/error handling.
 - **Lên mức 8.0–8.9:** ✅ **demo được cả hai tình huống concurrency** (test tự động + `scripts/concurrency-test.sh`); còn lại ❌ diagram kiến trúc dạng hình.
 - **Lên mức 9.0–9.5:** ✅ **API documentation (Swagger/OpenAPI)** đã có (springdoc + Swagger UI gộp ở gateway) và ✅ **automated testing** đã có (28 test, cả 3 module PASS).
-- **Mức 10.0:** cần thêm ❌ integration/E2E test, ❌ concurrency test tự động, ❌ logging/tracing tập trung. (Idempotency ✅ và API Gateway ✅ thì đã có.)
+- **Mức 10.0:** ✅ **integration/E2E test** và ✅ **concurrency test tự động** đã có (28 test Testcontainers + `scripts/concurrency-test.sh` chạy E2E qua gateway); ✅ Idempotency và ✅ API Gateway đã có từ trước. Chỉ còn thiếu ❌ **logging/tracing tập trung** (correlation id xuyên service).
 
 ---
 
