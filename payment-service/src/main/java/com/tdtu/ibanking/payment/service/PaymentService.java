@@ -27,6 +27,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import java.util.Map;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -96,6 +98,7 @@ public class PaymentService {
         transaction.setUserId(userId);
         transaction.setTuitionId(tuitionInfo.getId());
         transaction.setAmount(tuitionInfo.getAmount());
+        transaction.setStudentName(tuitionInfo.getStudentName());
         transaction.setStatus(TransactionStatus.PENDING);
         transaction = transactionRepository.save(transaction);
 
@@ -107,8 +110,13 @@ public class PaymentService {
         try {
             EmailMessage email = new EmailMessage(
                     userInfo.getEmail(),
-                    "Mã OTP xác thực thanh toán",
-                    "Mã OTP của bạn là: " + otp + "\nCó hiệu lực trong " + OTP_TTL_MINUTES + " phút."
+                    "OTP",
+                    Map.of(
+                        "otp", otp,
+                        "amount", tuitionInfo.getAmount().toPlainString(),
+                        "expiryMinutes", String.valueOf(OTP_TTL_MINUTES),
+                        "studentName", tuitionInfo.getStudentName() != null ? tuitionInfo.getStudentName() : tuitionInfo.getMssv()
+                    )
             );
             rabbitTemplate.convertAndSend("email_queue", email);
         } catch (Exception e) {
@@ -226,8 +234,7 @@ public class PaymentService {
         rateLimiterService.clearAttempts(transactionId);
         rateLimiterService.clearUserFails(userId);   // P-19
 
-        sendSuccessEmail(userId, transaction);
-
+        sendSuccessEmail(userId, transaction, debitResult.getBalance());
         log.info("Payment successful for transaction {}", transactionId);
         return successResponse(transaction, debitResult.getBalance(), "Thanh toán thành công");
     }
@@ -363,17 +370,22 @@ public class PaymentService {
                 "CẦN ĐỐI SOÁT TAY NGAY", MAX_NETWORK_RETRIES + 1, transactionId);
     }
 
-    private void sendSuccessEmail(UUID userId, Transaction transaction) {
+    private void sendSuccessEmail(UUID userId, Transaction transaction, java.math.BigDecimal balanceAfter) {
         try {
             UserInfo userInfo = authServiceClient.getUserInfo(userId);
             if (userInfo == null || userInfo.getEmail() == null) return;
             EmailMessage confirmEmail = new EmailMessage(
                     userInfo.getEmail(),
-                    "Thanh toán thành công",
-                    "Bạn đã thanh toán thành công số tiền " + transaction.getAmount() + " VND."
+                    "PAYMENT_SUCCESS",
+                    Map.of(
+                            "amount", transaction.getAmount().toPlainString(),
+                            "balance", balanceAfter != null ? balanceAfter.toPlainString() : "0",
+                            "transactionId", transaction.getId().toString(),
+                            "studentName", transaction.getStudentName() != null ? transaction.getStudentName() : "sinh viên"
+                    )
             );
             rabbitTemplate.convertAndSend("email_queue", confirmEmail);
-        } catch (Exception e) {   // P-15: bắt MỌI lỗi, không riêng lỗi HTTP
+        } catch (Exception e) {
             log.warn("Không gửi được email xác nhận cho transaction {}: {}", transaction.getId(), e.getMessage());
         }
     }
