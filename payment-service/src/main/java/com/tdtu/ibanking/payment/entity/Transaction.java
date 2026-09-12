@@ -25,6 +25,9 @@ public class Transaction {
     @Column(name = "tuition_id", nullable = false)
     private UUID tuitionId;
 
+    @Column(name = "student_name", length = 128)
+    private String studentName;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
