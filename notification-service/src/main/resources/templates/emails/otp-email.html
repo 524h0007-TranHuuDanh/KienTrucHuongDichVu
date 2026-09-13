@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Mã xác thực thanh toán học phí</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f7fa; padding:40px 16px;">
+        <tr>
+            <td align="center">
+                <!-- Main Container -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.05); mso-table-lspace:0pt; mso-table-rspace:0pt;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background-color:#2563eb; padding:40px 32px; text-align:center;">
+                            <div style="font-size:40px; line-height:1; margin-bottom:12px;">🏦</div>
+                            <div style="color:#ffffff; font-size:24px; font-weight:700; letter-spacing:0.5px;">
+                                TDTU iBanking
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding:40px 32px;">
+                            <div style="font-size:20px; color:#1e293b; font-weight:700; margin-bottom:16px; text-align:center;">
+                                🔐 Xác thực thanh toán học phí
+                            </div>
+                            
+                            <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 20px 0;">
+                                Bạn đang thực hiện thanh toán học phí cho
+                                <strong style="color:#111827;" th:text="${studentName}">Nguyễn Văn A</strong>
+                                với số tiền
+                                <strong style="color:#111827;" th:text="${#numbers.formatDecimal(amount,0,'COMMA',0,'POINT')} + ' VNĐ'">8.500.000 VNĐ</strong>.
+                                Vui lòng sử dụng mã OTP bên dưới để xác nhận:
+                            </p>
+
+                            <!-- OTP Box (Kéo dài, căn giữa hoàn hảo) -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                                <tr>
+                                    <td align="center" style="background-color:#eff6ff; border:2px dashed #3b82f6; border-radius:12px; padding:32px 16px;">
+                                        <!-- padding-left bằng letter-spacing để bù khoảng trắng dư ở cuối, giúp chữ căn giữa tuyệt đối -->
+                                        <span style="font-size:42px; font-weight:800; letter-spacing:16px; padding-left:16px; color:#1d4ed8; font-family:'Courier New', Courier, monospace; display:block; text-align:center;" th:text="${otp}">123456</span>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div style="background-color:#fffbeb; border-left:4px solid #f59e0b; padding:16px; border-radius:4px; margin-bottom:8px;">
+                                <p style="color:#92400e; font-size:14px; line-height:1.5; margin:0; text-align:center;">
+                                    ⏱️ Mã có hiệu lực trong <strong th:text="${expiryMinutes}">5</strong> phút.<br/>
+                                    Tuyệt đối <strong>KHÔNG</strong> chia sẻ mã này cho bất kỳ ai.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color:#f8fafc; padding:24px 32px; text-align:center; border-top:1px solid #e2e8f0;">
+                            <span style="color:#94a3b8; font-size:13px; line-height:1.5; display:block;">
+                                © 2026 TDTU iBanking · Email tự động, vui lòng không trả lời.<br/>
+                                Nếu bạn không thực hiện giao dịch này, vui lòng liên hệ ngay với ngân hàng.
+                            </span>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
