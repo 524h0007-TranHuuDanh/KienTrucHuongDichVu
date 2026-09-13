@@ -31,7 +31,7 @@ public class Transaction {
     @Column(name = "mssv", length = 20)
     private String mssv;
 
-    @Column(name = "student_name")
+    @Column(name = "student_name", length = 128)
     private String studentName;
 
     @Column(nullable = false, precision = 12, scale = 2)

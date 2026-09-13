@@ -13,6 +13,7 @@ import java.util.UUID;
 public class TuitionDetailInfo {
     private UUID id;
     private String mssv;
+    private String studentName;
     private BigDecimal amount;
     private Boolean paid;
     private UUID transactionId;
