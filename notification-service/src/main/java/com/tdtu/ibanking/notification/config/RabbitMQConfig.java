@@ -1,15 +1,19 @@
 package com.tdtu.ibanking.notification.config;
 
+import com.tdtu.ibanking.notification.model.EmailMessage;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-//p07
+
+import java.util.Map;
+
 @Configuration
 public class RabbitMQConfig {
 
@@ -44,6 +48,10 @@ public class RabbitMQConfig {
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
+        DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
+        typeMapper.setIdClassMapping(Map.of("emailMessage", EmailMessage.class));
+        converter.setJavaTypeMapper(typeMapper);
+        return converter;
     }
 }

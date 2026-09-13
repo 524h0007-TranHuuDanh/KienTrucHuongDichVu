@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -12,6 +13,6 @@ import java.io.Serializable;
 public class EmailMessage implements Serializable {
     private static final long serialVersionUID = 1L;
     private String to;
-    private String subject;
-    private String body;
+    private String type;              // "OTP" hoặc "PAYMENT_SUCCESS"
+    private Map<String, String> variables;
 }
