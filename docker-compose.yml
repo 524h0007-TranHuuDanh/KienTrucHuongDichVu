@@ -34,6 +34,26 @@ services:
       - "5672:5672"
       - "15672:15672"
 
+  account-service:
+    build: ./account-service
+    container_name: ibanking-account
+    environment:
+      DB_HOST: postgres
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Alpine (eclipse-temurin:17-jdk-alpine) có sẵn wget qua busybox - dùng
+      # /actuator/health (spring-boot-starter-actuator, chỉ expose đúng "health",
+      # xem application.yml) thay vì cài thêm curl để đỡ tốn công.
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8085/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   auth-service:
     build: ./auth-service
     container_name: ibanking-auth
@@ -46,6 +66,8 @@ services:
       OPENAPI_SERVER_URL: ${OPENAPI_SERVER_URL:-http://localhost:8080}
     depends_on:
       postgres:
+        condition: service_healthy
+      account-service:
         condition: service_healthy
 
   tuition-service:

@@ -7,7 +7,8 @@ gửi qua email, và toàn bộ luồng đảm bảo tính nhất quán dữ li�
 Đề bài gốc: [`docs/MidtermVIHK12627.md`](docs/MidtermVIHK12627.md).
 
 > Repo này là **backend thuần** (không có frontend). Đề bài yêu cầu giao diện Web nhưng thư mục hiện tại
-> chỉ có 5 service Spring Boot + hạ tầng Docker Compose.
+> chỉ có 6 service Spring Boot (`account-service` mới tách từ `auth-service`, chỉ nội bộ — không lộ
+> qua gateway, không tính vào số service "public" của đề bài) + hạ tầng Docker Compose.
 
 ---
 
@@ -20,10 +21,15 @@ gửi qua email, và toàn bộ luồng đảm bảo tính nhất quán dữ li�
                 ┌─────────────────────────┼──────────────────────────┐
                 ▼                         ▼                          ▼
         auth-service :8081       tuition-service :8082       payment-service :8083
-        (users, số dư,            (sinh viên, học phí,        (điều phối saga
-         phát hành JWT)            đánh dấu đã đóng)           OTP → debit → mark-paid)
+        (users, JWT,              (sinh viên, học phí,        (điều phối saga
+         không còn giữ số dư)      đánh dấu đã đóng)           OTP → debit → mark-paid)
                 │                         │                          │
-                └──────────── X-Internal-Api-Key (service gọi service) ───┘
+                ├──────── X-Internal-Api-Key (service gọi service) ──┘
+                │
+                ▼
+        account-service :8085   (nội bộ, KHÔNG lộ qua gateway)
+        (Account = số dư, sổ cái balance_entries — auth-service
+         gọi qua AccountServiceClient + X-Internal-Api-Key)
                                                                       │
                                                                       ▼
                                                           RabbitMQ (email_queue)
@@ -32,25 +38,32 @@ gửi qua email, và toàn bộ luồng đảm bảo tính nhất quán dữ li�
                                                        notification-service :8084
                                                           (nghe queue, gửi email SMTP)
 
-Hạ tầng dùng chung: PostgreSQL (1 instance, 3 database: authdb / tuitiondb / paymentdb),
+Hạ tầng dùng chung: PostgreSQL (1 instance, 4 database: authdb / tuitiondb / paymentdb / accountdb),
 Redis (OTP + rate-limit + Redisson distributed lock), RabbitMQ (hàng đợi email).
 ```
 
-Chỉ `api-gateway` (8080) và `notification-service` (8084) publish port ra host; ba service còn lại chỉ
-gọi được từ trong mạng Docker nội bộ — xem `docker-compose.yml`.
+Chỉ `api-gateway` (8080) và `notification-service` (8084) publish port ra host; các service còn lại
+(kể cả `account-service`, port nội bộ 8085) chỉ gọi được từ trong mạng Docker nội bộ — xem
+`docker-compose.yml`. `account-service` không có route nào trong `api-gateway`, không nhận JWT —
+chỉ nhận gọi service-to-service kèm `X-Internal-Api-Key`, y hệt cách `payment-service` gọi
+`auth-service`/`tuition-service`.
 
 ### Vai trò từng service
 
 | Service | Port | Database | Trách nhiệm chính |
 |---|---|---|---|
 | `api-gateway` | 8080 | — | Cổng vào duy nhất, verify JWT (`GlobalFilter`), route theo path, CORS cho frontend |
-| `auth-service` | 8081 | `authdb` | Đăng nhập, phát JWT, quản lý thông tin + **số dư** người dùng, ghi sổ cái `balance_entries` |
+| `auth-service` | 8081 | `authdb` | Đăng nhập, phát JWT, quản lý thông tin định danh người dùng; **số dư** được proxy qua `account-service` (xem dưới), contract ra ngoài (`balance` trong login/user-info/debit/credit) giữ nguyên |
 | `tuition-service` | 8082 | `tuitiondb` | Nguồn dữ liệu học phí duy nhất: tra cứu theo MSSV, đánh dấu đã đóng (`mark-paid`) |
 | `payment-service` | 8083 | `paymentdb` (chỉ bảng `transactions`) | **Điều phối** luồng thanh toán: OTP, saga trừ tiền + xác nhận học phí, lịch sử giao dịch |
 | `notification-service` | 8084 | — | Consumer RabbitMQ, gửi email OTP / xác nhận thanh toán qua SMTP |
+| `account-service` | 8085 (nội bộ, không publish ra host) | `accountdb` | Sở hữu `Account` (số dư) + sổ cái `balance_entries`; chỉ nhận gọi từ `auth-service` kèm `X-Internal-Api-Key`, không lộ qua gateway |
 
 `payment-service` **không** có bảng `users`/`tuitions` cục bộ — nó gọi HTTP sang `auth-service` và
-`tuition-service` để đọc/ghi, tự nó chỉ lưu bảng `transactions` để điều phối saga.
+`tuition-service` để đọc/ghi, tự nó chỉ lưu bảng `transactions` để điều phối saga. Từ khi tách
+`account-service` (2026-09-14), `auth-service` cũng không còn lưu `balance` cục bộ — nó là lớp proxy
+gọi sang `account-service` qua `client/AccountServiceClient.java`, giữ nguyên 100% contract API ra
+ngoài (`payment-service`/`tuition-service`/Frontend không cần đổi gì).
 
 ---
 
@@ -62,7 +75,7 @@ gọi được từ trong mạng Docker nội bộ — xem `docker-compose.yml`.
 - **JJWT 0.11.5** (tự ký/verify JWT, không dùng Keycloak/Auth0)
 - **Redisson 3.27.2** — distributed lock cấp tài khoản khi xác thực OTP
 - **springdoc-openapi 2.3.0** — Swagger UI gộp tại `:8080/swagger-ui.html`
-- **JUnit 5 + Testcontainers 1.19.7 + AssertJ + Mockito** — 28 test tự động chạy trên Postgres/Redis **thật**
+- **JUnit 5 + Testcontainers 1.19.7 + AssertJ + Mockito** — 33 test tự động chạy trên Postgres/Redis **thật**
   (không dùng H2, lý do ở mục 7.1)
 - **Docker Compose** để chạy toàn bộ hệ thống
 
@@ -77,9 +90,13 @@ Hệ thống dùng **hai cơ chế xác thực song song**, đừng nhầm lẫn
    service đích. Mỗi service tự parse JWT lại (không tin tưởng mù `X-User-Id`) để lấy `userId` gắn vào
    `HttpServletRequest` attribute.
 2. **`X-Internal-Api-Key`** — key dùng chung (`INTERNAL_API_KEY` trong `.env`), dùng cho các lời gọi
-   **service-to-service** không đi qua gateway (`payment-service` → `auth-service`/`tuition-service`).
-   Xem `InternalApiKeyFilter` ở cả `auth-service` và `tuition-service`:
+   **service-to-service** không đi qua gateway (`payment-service` → `auth-service`/`tuition-service`,
+   và từ 2026-09-14: `auth-service` → `account-service`). Xem `InternalApiKeyFilter` ở `auth-service`,
+   `tuition-service` và `account-service` (bản của `account-service` đơn giản hơn — mọi endpoint
+   `/api/account/**` đều bắt buộc key, không có nhánh JWT vì service này không có end-user login):
    - `POST /api/auth/users/{id}/debit|credit` — **bắt buộc** internal key, JWT không thay thế được.
+     Nội bộ, `auth-service` forward tiếp sang `POST /api/account/users/{id}/debit|credit` (cũng
+     bắt buộc internal key) trước khi trả kết quả về nguyên shape cũ.
    - `GET /api/auth/users/{id}` — chấp nhận **internal key HOẶC** JWT của chính chủ (owner-check nằm ở
      `AuthController.enforceOwnershipOrInternal`).
 
@@ -175,6 +192,7 @@ cp .env.example .env
 
 ```bash
 # build từng service (Dockerfile của mỗi service COPY sẵn target/*.jar)
+mvn -f account-service/pom.xml package -DskipTests
 mvn -f auth-service/pom.xml package -DskipTests
 mvn -f tuition-service/pom.xml package -DskipTests
 mvn -f payment-service/pom.xml package -DskipTests
@@ -185,7 +203,9 @@ docker compose up -d --build
 ```
 
 Lần đầu chạy (hoặc sau khi đổi schema): `docker compose down -v` trước để Postgres tạo lại volume sạch —
-`init-db.sql` chỉ tạo 3 database (`authdb`, `tuitiondb`, `paymentdb`) lúc volume còn trống.
+`init-db.sql` chỉ tạo 4 database (`authdb`, `tuitiondb`, `paymentdb`, `accountdb`) lúc volume còn trống.
+`account-service` phải healthy trước khi `auth-service` khởi động (`depends_on.condition: service_healthy`
+trong `docker-compose.yml`) vì `auth-service` gọi sang `account-service` để seed số dư demo.
 
 ### 6.3 Tài khoản & dữ liệu demo
 
@@ -242,7 +262,9 @@ docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> --scan --pattern "otp:*
 ### 6.4 Endpoint hạ tầng
 
 - RabbitMQ management UI: `http://localhost:15672` (user/pass theo `.env`)
-- Postgres: `localhost:5432`, 3 database `authdb`/`tuitiondb`/`paymentdb`
+- Postgres: `localhost:5432`, 4 database `authdb`/`tuitiondb`/`paymentdb`/`accountdb`
+- `account-service` không publish port ra host (chỉ `:8085` nội bộ trong mạng Docker) — không gọi
+  trực tiếp từ máy host được, chỉ `auth-service` gọi tới qua container DNS `http://account-service:8085`
 
 ---
 
@@ -260,7 +282,8 @@ và `SELECT ... FOR UPDATE` trên H2 không phản ánh đúng hành vi khoá �
 ### 7.2. Chạy test
 
 ```bash
-mvn -f auth-service/pom.xml test        # 10 test
+mvn -f account-service/pom.xml test     #  6 test
+mvn -f auth-service/pom.xml test        #  9 test
 mvn -f tuition-service/pom.xml test     # 11 test
 mvn -f payment-service/pom.xml test     #  7 test
 ```
@@ -270,9 +293,9 @@ Surefire đã được cấu hình chạy cả `*Test` lẫn `*IT`.
 
 | Module | Test | Nội dung chính |
 |---|---|---|
-| `auth-service` | `BalanceServiceTest` (5) | Trừ tiền, idempotency theo `transaction_id`, thiếu số dư, hoàn tiền sai, giao dịch đã chốt |
-| | `BalanceConcurrencyIT` (1) | **Tình huống tranh chấp 1** — 10 thread cùng trừ tiền một tài khoản |
-| | `AuthControllerIT` (4) | Đăng nhập đúng/sai, JWT người khác → 403, thiếu internal key → 403 |
+| `account-service` | `BalanceServiceTest` (5) | Trừ tiền, idempotency theo `transaction_id`, thiếu số dư, hoàn tiền sai, giao dịch đã chốt (chuyển từ `auth-service`, xem mục 1) |
+| | `BalanceConcurrencyIT` (1) | **Tình huống tranh chấp 1** — 10 thread cùng trừ tiền một tài khoản (nay chạy trên `Account` của `account-service`) |
+| `auth-service` | `AuthControllerIT` (9) | Đăng nhập đúng/sai, JWT người khác → 403, thiếu internal key → 403, và các case proxy sang `account-service` qua `MockRestServiceServer` (debit/credit thành công, 409/404 forward đúng status) |
 | `tuition-service` | `TuitionServiceTest` (7) | Học phí đến hạn sớm nhất, không tìm thấy, đã đóng hết, `mark-paid` + idempotency |
 | | `TuitionMarkPaidConcurrencyIT` (1) | **Tình huống tranh chấp 2** — 10 thread cùng gạch nợ một khoản học phí |
 | | `TuitionControllerIT` (3) | 401 khi thiếu JWT, 403 khi thiếu internal key, 200 khi đủ |
@@ -314,7 +337,7 @@ Cách kiểm chứng test thật sự có giá trị — gỡ cơ chế bảo v�
 
 | Gỡ gì | Kết quả |
 |---|---|
-| `@Lock(PESSIMISTIC_WRITE)` khỏi `UserRepository.findByIdForUpdate` | `BalanceConcurrencyIT` ĐỎ — `expected: 5 but was: 10`, cả 10 thread trừ được 20.000.000 từ số dư 10.000.000 |
+| `@Lock(PESSIMISTIC_WRITE)` khỏi `AccountRepository.findDefaultByUserIdForUpdate` (`account-service`, trước đây là `UserRepository.findByIdForUpdate` của `auth-service` — đã chuyển cùng logic khoá khi tách `account-service`, xem mục 1) | `BalanceConcurrencyIT` ĐỎ — `expected: 5 but was: 10`, cả 10 thread trừ được 20.000.000 từ số dư 10.000.000 |
 | `@Lock` khỏi `TuitionRepository.findByIdForUpdate` **và** `@Version` khỏi `Tuition` | `TuitionMarkPaidConcurrencyIT` ĐỎ — `expected: 1 but was: 10` |
 
 Lưu ý quan trọng: với `tuition-service`, **chỉ gỡ `@Lock` là chưa đủ để test đỏ** — `@Version`
@@ -336,11 +359,12 @@ Nói cách khác khoản học phí được bảo vệ bằng **hai lớp độ
 
 ```
 ├── api-gateway/          Spring Cloud Gateway — JWT filter + routing + CORS
-├── auth-service/         Login, JWT, users, số dư (debit/credit), sổ cái balance_entries
+├── auth-service/         Login, JWT, users (định danh); số dư proxy qua account-service
 ├── tuition-service/      Sinh viên, học phí, mark-paid
 ├── payment-service/      Điều phối saga thanh toán, OTP, rate-limit, lịch sử giao dịch
 ├── notification-service/ Consumer RabbitMQ, gửi email
-├── docker-compose.yml    Toàn bộ hạ tầng + 5 service
+├── account-service/      Số dư (Account) + sổ cái balance_entries — nội bộ, không lộ qua gateway
+├── docker-compose.yml    Toàn bộ hạ tầng + 6 service
 ├── init-db.sql           Tạo 3 database lúc Postgres khởi động lần đầu
 ├── scripts/
 │   └── concurrency-test.sh   Kiểm thử E2E 2 tình huống tranh chấp (mục 7.4)

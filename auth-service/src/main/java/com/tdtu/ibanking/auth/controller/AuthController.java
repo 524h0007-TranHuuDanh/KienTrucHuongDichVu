@@ -1,11 +1,11 @@
 package com.tdtu.ibanking.auth.controller;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -78,8 +78,9 @@ public class AuthController {
             User user = userRepository.findByUsername(loginRequest.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
             String jwt = jwtUtils.generateJwtToken(authentication, user.getId());
+            BigDecimal balance = balanceService.getBalance(user.getId()).getBalance();
 
-            return ResponseEntity.ok(new LoginResponse(jwt, user.getId(), user.getEmail(), user.getBalance()));
+            return ResponseEntity.ok(new LoginResponse(jwt, user.getId(), user.getEmail(), balance));
         } catch (Exception e) {
             return ResponseEntity.status(401).body(Map.of("error", "Sai mật khẩu!"));
         }
@@ -117,7 +118,7 @@ public class AuthController {
         body.put("email", user.getEmail());
         body.put("fullName", user.getFullName());
         body.put("phone", user.getPhone());
-        body.put("balance", user.getBalance());
+        body.put("balance", balanceService.getBalance(userId).getBalance());
         return ResponseEntity.ok(body);
     }
 
@@ -147,12 +148,8 @@ public class AuthController {
     @PostMapping("/users/{id}/debit")
     public ResponseEntity<BalanceResponse> debit(@PathVariable UUID id,
                                                   @Valid @RequestBody BalanceChangeRequest request) {
-        try {
-            return ResponseEntity.ok(
-                    balanceService.debit(id, request.getAmount(), request.getTransactionId()));
-        } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.ok(balanceService.getBalance(id));
-        }
+        return ResponseEntity.ok(
+                balanceService.debit(id, request.getAmount(), request.getTransactionId()));
     }
 
     @Operation(
@@ -181,12 +178,8 @@ public class AuthController {
     @PostMapping("/users/{id}/credit")
     public ResponseEntity<BalanceResponse> credit(@PathVariable UUID id,
                                                    @Valid @RequestBody BalanceChangeRequest request) {
-        try {
-            return ResponseEntity.ok(
-                    balanceService.credit(id, request.getAmount(), request.getTransactionId()));
-        } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.ok(balanceService.getBalance(id));
-        }
+        return ResponseEntity.ok(
+                balanceService.credit(id, request.getAmount(), request.getTransactionId()));
     }
 
     private void enforceOwnershipOrInternal(UUID targetUserId) {

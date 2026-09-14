@@ -1,5 +1,6 @@
-package com.tdtu.ibanking.auth.support;
+package com.tdtu.ibanking.account.support;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,19 +11,20 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import com.tdtu.ibanking.auth.entity.User;
-import com.tdtu.ibanking.auth.repository.UserRepository;
+import com.tdtu.ibanking.account.entity.Account;
+import com.tdtu.ibanking.account.entity.AccountStatus;
+import com.tdtu.ibanking.account.repository.AccountRepository;
 
 /**
- * Lớp cha cho mọi test chạm database.
+ * Lớp cha cho mọi test chạm database, copy nguyên cơ chế từ
+ * {@code auth-service/.../support/AbstractPostgresIT.java} (đổi User -> Account,
+ * authdb -> accountdb). KHÔNG được gỡ static block set {@code api.version=1.41} -
+ * gỡ là Testcontainers không kết nối được Docker Engine trên máy này.
  *
- * <p>Dùng Postgres thật qua Testcontainers (KHÔNG dùng H2) cho các test còn thao tác
- * trực tiếp trên bảng {@code users} của auth-service (login, JWT, ownership...). Từ
- * Phase 4 trở đi, logic trừ/cộng tiền + khoá pessimistic ({@code SELECT ... FOR UPDATE})
- * và ràng buộc {@code UNIQUE(transaction_id, type)} đã chuyển hẳn sang account-service
- * (xem {@code account-service/.../support/AbstractPostgresIT.java}) - auth-service chỉ
- * còn gọi HTTP sang đó qua {@code AccountServiceClient}, được giả lập bằng
- * {@code MockRestServiceServer} trong {@code AuthControllerIT}.
+ * <p>Dùng Postgres thật qua Testcontainers (KHÔNG dùng H2) vì các hành vi đang được
+ * kiểm thử phụ thuộc trực tiếp vào Postgres: {@code SELECT ... FOR UPDATE} của
+ * {@code AccountRepository.findDefaultByUserIdForUpdate} và ràng buộc
+ * {@code UNIQUE(transaction_id, type)} trên bảng {@code balance_entries}.
  *
  * <p>Container là singleton {@code static}, khởi động một lần trong static block và
  * không bao giờ bị JUnit dừng giữa chừng, nên mọi lớp test dùng chung một container
@@ -50,7 +52,7 @@ public abstract class AbstractPostgresIT {
 
     protected static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:15-alpine")
-                    .withDatabaseName("authdb")
+                    .withDatabaseName("accountdb")
                     .withUsername("postgres")
                     .withPassword("postgres")
                     .withReuse(false);
@@ -62,7 +64,6 @@ public abstract class AbstractPostgresIT {
     /**
      * application.yml khai báo {@code internal.api-key: ${INTERNAL_API_KEY}} KHÔNG có
      * giá trị mặc định, nên context sẽ không khởi động được nếu không set ở đây.
-     * jwt.secret tuy có mặc định nhưng vẫn set tường minh cho tất định.
      */
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
@@ -72,38 +73,28 @@ public abstract class AbstractPostgresIT {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
         registry.add("spring.jpa.show-sql", () -> "false");
         registry.add("internal.api-key", () -> TEST_INTERNAL_API_KEY);
-        registry.add("jwt.secret", () -> TEST_JWT_SECRET);
-        registry.add("jwt.expiration", () -> "86400000");
-        // Giá trị này KHÔNG bao giờ được gọi HTTP thật trong test - AuthControllerIT
-        // bọc RestTemplate bằng MockRestServiceServer để giả lập account-service.
-        // DemoDataSeeder cũng gọi tới URL này lúc context khởi động; account-service
-        // không tồn tại trong test nên các lần gọi đó sẽ lỗi sau khi retry hết —
-        // DemoDataSeeder đã bắt và log warning thay vì làm sập context (xem
-        // DemoDataSeeder.upsert).
-        registry.add("account-service.base-url", () -> TEST_ACCOUNT_SERVICE_BASE_URL);
     }
 
     public static final String TEST_INTERNAL_API_KEY = "test-internal-key";
-    public static final String TEST_JWT_SECRET = "c2VjcmV0LWtleS1mb3ItaWJhbmtpbmctdGVzdC1vbmx5LTEyMzQ1Ng==";
-    public static final String TEST_ACCOUNT_SERVICE_BASE_URL = "http://account-service-test:8085";
 
     @Autowired
-    protected UserRepository userRepository;
+    protected AccountRepository accountRepository;
 
     /**
-     * Tạo user RIÊNG cho từng test với username/email duy nhất (cả hai cột đều UNIQUE),
-     * để không phụ thuộc và không làm bẩn hai user demo do DemoDataSeeder ghi mỗi lần
-     * context khởi động (524h0088 / 524h0456). Không còn tham số balance từ Phase 4 -
-     * số dư giờ thuộc về account-service, không phải User.
+     * Tạo account mặc định RIÊNG cho từng test với userId/accountNumber ngẫu nhiên
+     * (accountNumber UNIQUE), để không phụ thuộc và không làm bẩn dữ liệu demo do
+     * DemoDataSeeder của auth-service tạo qua account-service khi seed.
      */
-    protected User createUser() {
+    protected Account createAccount(BigDecimal balance) {
         String unique = UUID.randomUUID().toString().replace("-", "");
-        User user = new User();
-        user.setUsername("test-" + unique);
-        user.setEmail("test-" + unique + "@example.com");
-        user.setFullName("Test User " + unique.substring(0, 8));
-        user.setPhone("0900000000");
-        user.setPassword("{noop}irrelevant");
-        return userRepository.save(user);
+        Account account = Account.builder()
+                .userId(UUID.randomUUID())
+                .accountNumber(unique.substring(0, 12))
+                .balance(balance)
+                .currency("VND")
+                .isDefault(true)
+                .status(AccountStatus.ACTIVE)
+                .build();
+        return accountRepository.save(account);
     }
 }

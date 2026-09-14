@@ -7,6 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.tdtu.ibanking.auth.client.AccountServiceClient;
 import com.tdtu.ibanking.auth.entity.User;
 import com.tdtu.ibanking.auth.repository.UserRepository;
 
@@ -16,7 +17,10 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Seed tài khoản demo lúc khởi động — thay cho endpoint GET /api/auth/fix đã xoá (A-01).
  * Chạy sau khi Hibernate đã tạo bảng, không có đường HTTP nào gọi tới.
- * Mỗi lần khởi động ghi đè lại password + balance để demo luôn về trạng thái đầu.
+ * Mỗi lần khởi động ghi đè lại password; số dư (balance) từ Phase 4 trở đi KHÔNG còn
+ * lưu ở auth-service nữa — được tạo/đảm bảo tồn tại bên account-service qua
+ * AccountServiceClient.ensureAccount (idempotent: nếu user đã có account mặc định thì
+ * account-service giữ nguyên số dư hiện có, KHÔNG ghi đè lại 100tr/15tr mỗi lần khởi động).
  */
 @Component
 @RequiredArgsConstructor
@@ -25,6 +29,7 @@ public class DemoDataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AccountServiceClient accountServiceClient;
 
     @Override
     @Transactional
@@ -45,7 +50,17 @@ public class DemoDataSeeder implements CommandLineRunner {
         user.setEmail(email);
         user.setPhone(phone);
         user.setPassword(passwordEncoder.encode(rawPassword));
-        user.setBalance(balance);
         userRepository.save(user);
+
+        try {
+            accountServiceClient.ensureAccount(user.getId(), balance);
+        } catch (RuntimeException e) {
+            // Không để lỗi tạm thời của account-service (chưa sẵn sàng, mạng chập chờn...)
+            // làm sập context lúc khởi động auth-service. User vẫn được tạo bình thường;
+            // nếu account-service thực sự không có account cho user này, các lời gọi
+            // balance/debit/credit sau đó sẽ trả 404 rõ ràng thay vì crash lúc seed.
+            log.warn("Không thể ensureAccount cho user {} trên account-service: {}",
+                    username, e.getMessage());
+        }
     }
 }
