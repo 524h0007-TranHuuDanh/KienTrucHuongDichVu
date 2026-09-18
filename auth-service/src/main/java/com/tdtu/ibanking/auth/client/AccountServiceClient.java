@@ -16,15 +16,11 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * Client HTTP nội bộ gọi sang account-service (sở hữu balance/ledger sau khi tách khỏi
- * auth-service - xem TODO_Account_Service.md Phase 4). Copy đúng pattern
- * payment-service/client/AuthServiceClient.java: RestTemplate + header X-Internal-Api-Key,
- * base URL đọc qua config (KHÔNG hardcode).
+ * Gọi sang account-service, nơi giữ số dư và sổ ledger.
  *
- * <p>debit/credit/getBalance là request thời gian thực từ người dùng - KHÔNG retry, lỗi
- * thì trả lỗi luôn để không làm chậm response. ensureAccount chỉ dùng lúc seed demo data
- * lúc khởi động (DemoDataSeeder) nên có retry/backoff ngắn để chịu được race lúc
- * account-service chưa sẵn sàng.
+ * <p>debit/credit/getBalance nằm trên đường đi của request người dùng nên không retry:
+ * lỗi thì trả lỗi ngay, đừng bắt người ta chờ. Riêng ensureAccount chỉ chạy lúc seed
+ * dữ liệu demo khi khởi động nên có retry ngắn.
  */
 @Component
 public class AccountServiceClient {
@@ -68,12 +64,10 @@ public class AccountServiceClient {
     }
 
     /**
-     * Idempotent bên phía account-service: nếu user đã có account mặc định thì trả về
-     * nguyên trạng, initialBalance bị bỏ qua. Retry {@value #ENSURE_ACCOUNT_MAX_ATTEMPTS}
-     * lần / {@value #ENSURE_ACCOUNT_RETRY_DELAY_MS}ms - depends_on.condition: service_healthy
-     * trong docker-compose chỉ đợi container start & healthcheck app-level của
-     * account-service, không đảm bảo tuyệt đối request đầu tiên lúc DemoDataSeeder chạy
-     * sẽ thành công ngay (race hiếm gặp lúc container vừa healthy).
+     * Idempotent: user đã có account mặc định thì account-service giữ nguyên, bỏ qua
+     * initialBalance. Retry {@value #ENSURE_ACCOUNT_MAX_ATTEMPTS} lần cách nhau
+     * {@value #ENSURE_ACCOUNT_RETRY_DELAY_MS}ms vì healthcheck trong docker-compose chỉ
+     * nói container đã "healthy", không đảm bảo request đầu tiên đi được ngay.
      */
     public void ensureAccount(UUID userId, BigDecimal initialBalance) {
         String url = accountServiceBaseUrl + "/api/account/users/" + userId + "/accounts";

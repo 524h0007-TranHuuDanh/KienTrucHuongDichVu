@@ -25,12 +25,11 @@ import com.tdtu.ibanking.payment.support.AbstractPaymentIT;
  * Hạn mức gửi OTP: {@code RateLimiterService.MAX_REQUESTS_PER_HOUR = 3} cho mỗi user,
  * đếm bằng {@code INCR} trên Redis thật với TTL 1 giờ.
  *
- * <p>Điểm phải cẩn thận khi viết test này: {@code initiatePayment} có nhánh chống trùng
- * (P-17) — nếu cùng khoản học phí đang có transaction PENDING/PROCESSING mà OTP còn hạn,
- * nó TRẢ LẠI transaction cũ và {@code return} sớm, tức KHÔNG trừ quota. Nếu gọi 4 lần với
- * cùng một MSSV thì lần 2-4 rơi hết vào nhánh này và rate limiter không bao giờ bị chạm.
- * Vì vậy mỗi lần gọi ở đây dùng một MSSV / khoản học phí KHÁC nhau nhưng CÙNG một userId —
- * hạn mức tính theo user nên vẫn đúng thứ cần kiểm thử.
+ * <p>Cái bẫy khi viết test này: {@code initiatePayment} trả lại transaction cũ và return
+ * sớm nếu cùng khoản học phí đang có giao dịch chờ OTP — tức là không trừ quota. Gọi 4
+ * lần cùng một MSSV thì ba lần sau rơi hết vào nhánh đó và rate limiter không bao giờ
+ * bị chạm tới. Nên mỗi lần gọi dùng một MSSV khác nhưng chung userId; hạn mức đếm theo
+ * user nên vẫn kiểm được đúng thứ cần kiểm.
  */
 class RateLimitTest extends AbstractPaymentIT {
 
@@ -48,8 +47,8 @@ class RateLimitTest extends AbstractPaymentIT {
     void quaBaLanGuiOtpTrongMotGio_thiBiChan() {
         UUID userId = UUID.randomUUID();
 
-        // 3 lần đầu phải thành công, mỗi lần một khoản học phí khác nhau
-        // để không rơi vào nhánh chống trùng (P-17) mà thực sự trừ quota.
+        // Ba lần đầu phải thành công. Mỗi lần một khoản học phí khác nhau để thực sự
+        // trừ quota thay vì rơi vào nhánh trả lại giao dịch cũ.
         for (int i = 1; i <= 3; i++) {
             PaymentInitResponse response = initiate(userId, "5210900" + i);
             assertThat(response.getTransactionId()).isNotNull();

@@ -36,12 +36,10 @@ import com.tdtu.ibanking.auth.support.AbstractPostgresIT;
  * Kiểm thử tầng HTTP của auth-service qua MockMvc, chạy trên Postgres thật.
  * Bao gồm cả hai lớp bảo vệ: JWT (chủ sở hữu) và X-Internal-Api-Key (service nội bộ).
  *
- * <p>Từ Phase 4, balance không còn nằm ở auth-service — login/getUserInfo/debit/credit
- * đều phải gọi HTTP sang account-service qua {@code AccountServiceClient}. Test này bọc
- * RestTemplate bằng {@link MockRestServiceServer} để giả lập response HTTP thật từ
- * account-service (thay vì @MockBean AccountServiceClient) — verify được luôn cả tầng
- * serialize/deserialize JSON, đảm bảo response ra ngoài (LoginResponse/BalanceResponse/
- * body của GET /users/{id}) giữ đúng shape như trước khi tách account-service.
+ * <p>Số dư nằm ở account-service, nên login/getUserInfo/debit/credit đều phải gọi HTTP
+ * sang đó. Ở đây dùng {@link MockRestServiceServer} thay vì mock hẳn
+ * {@code AccountServiceClient}, để test chạy qua cả tầng serialize/deserialize JSON và
+ * bắt được thay đổi shape của response trả ra ngoài.
  */
 class AuthControllerIT extends AbstractPostgresIT {
 

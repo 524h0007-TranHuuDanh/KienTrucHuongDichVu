@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
-//sửa cho p20: verifyOtp trả JSON object
 @RestController
 @RequestMapping("/api/payments")
 @RequiredArgsConstructor

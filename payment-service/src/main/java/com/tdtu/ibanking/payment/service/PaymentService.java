@@ -44,10 +44,10 @@ public class PaymentService {
     private static final String OTP_PREFIX = "otp:";
     private static final int OTP_TTL_MINUTES = 5;
     private static final int MAX_NETWORK_RETRIES = 2;
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom(); // P-08
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     public PaymentInitResponse initiatePayment(String mssv, UUID userId) {
-        // P-18: chỉ CHECK quota ở đây, KHÔNG trừ
+        // Mới chỉ xem còn lượt hay không; lượt được trừ ở cuối, sau khi OTP đã gửi đi.
         if (!rateLimiterService.hasOtpQuota(userId)) {
             long retryAfter = rateLimiterService.getOtpRequestRetryAfterSeconds(userId);
             throw new RateLimitExceededException("Bạn đã gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau.", retryAfter);
@@ -57,7 +57,6 @@ public class PaymentService {
         if (tuitionInfo == null) {
             throw new RuntimeException("Không tìm thấy khoản học phí chưa đóng cho MSSV: " + mssv);
         }
-        // P-16: check null tường minh thay vì unbox thẳng
         if (Boolean.TRUE.equals(tuitionInfo.getPaid())) {
             throw new InsufficientBalanceException("Khoản học phí này đã được đóng");
         }
@@ -73,7 +72,8 @@ public class PaymentService {
             throw new InsufficientBalanceException("Số dư không đủ để thanh toán");
         }
 
-        // P-17: kiểm tra giao dịch PENDING/PROCESSING trùng cho cùng khoản học phí
+        // Một khoản học phí chỉ nên có một giao dịch đang chạy. Nếu giao dịch cũ vẫn
+        // còn OTP hiệu lực thì nhường nó; nếu OTP đã hết hạn thì khai tử để đi tiếp.
         Optional<Transaction> existingOpt = transactionRepository
                 .findFirstByTuitionIdAndStatusInOrderByCreatedAtDesc(
                         tuitionInfo.getId(), List.of(TransactionStatus.PENDING, TransactionStatus.PROCESSING));
@@ -103,11 +103,11 @@ public class PaymentService {
         transaction.setStatus(TransactionStatus.PENDING);
         transaction = transactionRepository.save(transaction);
 
-        // P-08: SecureRandom + đúng khoảng 000000-999999
         String otp = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
         redisTemplate.opsForValue().set(OTP_PREFIX + transaction.getId(), otp, OTP_TTL_MINUTES, TimeUnit.MINUTES);
 
-        // P-15 (phần initiate): bọc gửi email, dọn dẹp nếu lỗi
+        // Gửi hỏng thì OTP vừa lưu thành rác và giao dịch không bao giờ xác thực được,
+        // nên dọn luôn thay vì để nó treo PENDING hết 5 phút.
         try {
             EmailMessage email = new EmailMessage(
                     userInfo.getEmail(),
@@ -129,7 +129,8 @@ public class PaymentService {
             throw new ServiceBusyException("Không gửi được mã OTP, vui lòng thử lại");
         }
 
-        // P-18: chỉ TRỪ quota SAU KHI gửi OTP thành công
+        // Trừ lượt ở đây, không phải lúc vào hàm: RabbitMQ chết không nên ăn mất
+        // hạn mức của người dùng.
         rateLimiterService.consumeOtpQuota(userId);
 
         log.info("OTP sent to {} for transaction {}", maskEmail(userInfo.getEmail()), transaction.getId());
@@ -149,7 +150,9 @@ public class PaymentService {
         boolean locked = false;
         try {
             try {
-                // P-04: bỏ leaseTime cố định -> Redisson watchdog tự gia hạn tới khi unlock()
+                // Không đặt leaseTime: saga gọi qua 2 service, đặt hạn cứng là có ngày
+                // khoá nhả giữa chừng. Bỏ trống thì watchdog của Redisson tự gia hạn
+                // cho tới khi unlock() ở finally.
                 locked = accountLock.tryLock(5, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -159,14 +162,14 @@ public class PaymentService {
                 throw new ServiceBusyException("Tài khoản đang được xử lý bởi một giao dịch khác");
             }
 
-            // P-02: đọc lại từ DB SAU khi giành khoá — bắt buộc
+            // Bản preCheck đọc trước khi có khoá nên có thể đã cũ — đọc lại.
             Transaction transaction = transactionRepository.findById(transactionId)
                     .orElseThrow(() -> new TransactionNotFoundException(transactionId));
 
             if (transaction.getStatus() == TransactionStatus.SUCCESS) {
                 return successResponse(transaction, null, "Giao dịch đã được xử lý trước đó");
             }
-            // P-01: chặn hẳn giao dịch FAILED, không cho chạy lại
+            // FAILED là trạng thái cuối — có thể đã hoàn tiền rồi, chạy lại là trừ hai lần.
             if (transaction.getStatus() == TransactionStatus.FAILED) {
                 throw new InsufficientBalanceException("Giao dịch này đã thất bại. Vui lòng khởi tạo giao dịch mới.");
             }
@@ -185,7 +188,6 @@ public class PaymentService {
             }
 
             String storedOtp = (String) redisTemplate.opsForValue().get(OTP_PREFIX + transactionId);
-            // P-21: so sánh constant-time
             if (storedOtp == null || !constantTimeEquals(storedOtp, otp)) {
                 rateLimiterService.recordFailedAttempt(transactionId, userId);
                 int remaining = rateLimiterService.getRemainingAttempts(transactionId);
@@ -230,10 +232,11 @@ public class PaymentService {
             throw new ServiceBusyException("Hệ thống đang bận, giao dịch của bạn đang được xử lý. Vui lòng kiểm tra lại sau.");
         }
 
-        // P-01: dọn dẹp OTP + rate-limit
+        // Giao dịch đã chốt: OTP không còn giá trị, và lần sai trước đó không nên
+        // tính vào hạn mức của người dùng nữa.
         redisTemplate.delete(OTP_PREFIX + transactionId);
         rateLimiterService.clearAttempts(transactionId);
-        rateLimiterService.clearUserFails(userId);   // P-19
+        rateLimiterService.clearUserFails(userId);
 
         sendSuccessEmail(userId, transaction, debitResult.getBalance());
         log.info("Payment successful for transaction {}", transactionId);
@@ -254,7 +257,7 @@ public class PaymentService {
                 failTransaction(transaction, "Không tìm thấy tài khoản");
                 throw new TransactionNotFoundException(transactionId);
             } catch (HttpClientErrorException.Forbidden e) {
-                // P-05: lỗi cấu hình internal-key -> KHÔNG thử lại
+                // Sai internal key là lỗi cấu hình, thử lại lần nữa cũng vẫn 403.
                 log.error("SAI CẤU HÌNH: auth-service từ chối internal API key cho transaction {}", transactionId);
                 failTransaction(transaction, "Lỗi cấu hình hệ thống");
                 throw new ServiceBusyException("Hệ thống gặp sự cố, vui lòng thử lại sau");
@@ -337,7 +340,7 @@ public class PaymentService {
         transaction.setStatus(TransactionStatus.FAILED);
         transaction.setErrorMessage(message);
         transactionRepository.save(transaction);
-        // P-01: dọn dẹp OTP + rate-limit ở MỌI nhánh thất bại
+        // Mọi nhánh hỏng đều đi qua đây, nên dọn OTP một chỗ là đủ.
         redisTemplate.delete(OTP_PREFIX + transaction.getId());
         rateLimiterService.clearAttempts(transaction.getId());
     }
@@ -404,7 +407,6 @@ public class PaymentService {
                 b.getBytes(StandardCharsets.UTF_8));
     }
 
-    // API lịch sử giao dịch (đặc tả Mục 1: "Lịch sử các giao dịch đã thực hiện")
     public List<TransactionHistoryItem> getTransactionHistory(UUID userId) {
         return transactionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(t -> new TransactionHistoryItem(
@@ -419,6 +421,4 @@ public class PaymentService {
         if (atIndex < 3) return "***" + email.substring(atIndex);
         return email.substring(0, 2) + "*****" + email.substring(atIndex);
     }
-
-    
 }

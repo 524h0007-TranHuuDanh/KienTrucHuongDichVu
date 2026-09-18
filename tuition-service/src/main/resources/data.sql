@@ -6,11 +6,10 @@ INSERT INTO students (id, mssv, full_name, email, faculty, created_at) VALUES
     ('11111111-1111-1111-1111-111111111005', '524H0005', 'Vo Quoc Bao',    '524H0005@tdtu.edu.vn', 'Cong Nghe Thong Tin', '2025-01-01 08:00:00')
 ON CONFLICT (id) DO NOTHING;
 
--- sửa cho lỗi #3: đổi DO UPDATE -> DO NOTHING cho các khoản học phí demo bên dưới.
--- data.sql chạy lại mỗi lần service khởi động (spring.sql.init.mode: always); DO UPDATE
--- trước đây ghi đè paid/transaction_id về đúng giá trị seed ban đầu mỗi lần restart,
--- xoá mất kết quả của giao dịch thật đã hoàn tất -> lệch dữ liệu với payment-service.
--- DO NOTHING chỉ seed một lần khi id chưa tồn tại, không đụng tới các dòng đã có.
+-- File này chạy lại mỗi lần service khởi động (spring.sql.init.mode: always), nên các
+-- khoản học phí bên dưới phải dùng DO NOTHING. DO UPDATE sẽ đưa paid/transaction_id về
+-- giá trị seed sau mỗi lần restart, xoá mất giao dịch đã hoàn tất và làm lệch dữ liệu
+-- so với payment-service.
 
 -- 524H0001: luong chinh, chua dong.
 INSERT INTO tuitions (id, mssv, semester, due_date, amount, paid, paid_at, transaction_id, version, created_at) VALUES

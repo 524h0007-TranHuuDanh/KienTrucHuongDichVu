@@ -16,19 +16,16 @@ import com.tdtu.ibanking.auth.repository.UserRepository;
 /**
  * Lớp cha cho mọi test chạm database.
  *
- * <p>Dùng Postgres thật qua Testcontainers (KHÔNG dùng H2) cho các test còn thao tác
- * trực tiếp trên bảng {@code users} của auth-service (login, JWT, ownership...). Từ
- * Phase 4 trở đi, logic trừ/cộng tiền + khoá pessimistic ({@code SELECT ... FOR UPDATE})
- * và ràng buộc {@code UNIQUE(transaction_id, type)} đã chuyển hẳn sang account-service
- * (xem {@code account-service/.../support/AbstractPostgresIT.java}) - auth-service chỉ
- * còn gọi HTTP sang đó qua {@code AccountServiceClient}, được giả lập bằng
- * {@code MockRestServiceServer} trong {@code AuthControllerIT}.
+ * <p>Postgres thật qua Testcontainers chứ không phải H2, vì các test này đụng thẳng vào
+ * bảng {@code users} (login, JWT, ownership). Phần trừ/cộng tiền với khoá pessimistic
+ * nằm bên account-service và có lớp test riêng ở đó; auth-service chỉ gọi HTTP sang,
+ * được giả lập bằng {@code MockRestServiceServer} trong {@code AuthControllerIT}.
  *
  * <p>Container là singleton {@code static}, khởi động một lần trong static block và
  * không bao giờ bị JUnit dừng giữa chừng, nên mọi lớp test dùng chung một container
  * và Spring context được cache lại (chỉ khởi động một lần cho cả module).
  *
- * <p>Cố tình KHÔNG đánh {@code @Transactional} lên các lớp test: test đồng thời chạy
+ * <p>Cố tình không đánh {@code @Transactional} lên các lớp test: test đồng thời chạy
  * trên nhiều thread, mỗi thread mở transaction riêng và commit thật; nếu test cha
  * rollback thì sẽ che mất dữ liệu các thread con đã commit.
  */
@@ -60,7 +57,7 @@ public abstract class AbstractPostgresIT {
     }
 
     /**
-     * application.yml khai báo {@code internal.api-key: ${INTERNAL_API_KEY}} KHÔNG có
+     * application.yml khai báo {@code internal.api-key: ${INTERNAL_API_KEY}} không có
      * giá trị mặc định, nên context sẽ không khởi động được nếu không set ở đây.
      * jwt.secret tuy có mặc định nhưng vẫn set tường minh cho tất định.
      */
@@ -74,7 +71,7 @@ public abstract class AbstractPostgresIT {
         registry.add("internal.api-key", () -> TEST_INTERNAL_API_KEY);
         registry.add("jwt.secret", () -> TEST_JWT_SECRET);
         registry.add("jwt.expiration", () -> "86400000");
-        // Giá trị này KHÔNG bao giờ được gọi HTTP thật trong test - AuthControllerIT
+        // Giá trị này không bao giờ được gọi HTTP thật trong test - AuthControllerIT
         // bọc RestTemplate bằng MockRestServiceServer để giả lập account-service.
         // DemoDataSeeder cũng gọi tới URL này lúc context khởi động; account-service
         // không tồn tại trong test nên các lần gọi đó sẽ lỗi sau khi retry hết —
@@ -91,10 +88,8 @@ public abstract class AbstractPostgresIT {
     protected UserRepository userRepository;
 
     /**
-     * Tạo user RIÊNG cho từng test với username/email duy nhất (cả hai cột đều UNIQUE),
-     * để không phụ thuộc và không làm bẩn hai user demo do DemoDataSeeder ghi mỗi lần
-     * context khởi động (524h0088 / 524h0456). Không còn tham số balance từ Phase 4 -
-     * số dư giờ thuộc về account-service, không phải User.
+     * Mỗi test một user riêng với username/email duy nhất (cả hai cột đều UNIQUE), để
+     * không đụng vào hai user demo mà DemoDataSeeder ghi lại mỗi lần context khởi động.
      */
     protected User createUser() {
         String unique = UUID.randomUUID().toString().replace("-", "");

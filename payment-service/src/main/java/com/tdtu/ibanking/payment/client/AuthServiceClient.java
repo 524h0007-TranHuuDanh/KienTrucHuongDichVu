@@ -14,7 +14,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-//sửa cho p22: getUserInfo dùng internal key thay vì relay JTW
 @Component
 public class AuthServiceClient {
     @Autowired

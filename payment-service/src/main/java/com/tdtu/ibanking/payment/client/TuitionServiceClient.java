@@ -25,9 +25,8 @@ public class TuitionServiceClient {
     private static final String TUITION_SERVICE_URL = "http://tuition-service:8082";
     private static final String INTERNAL_KEY_HEADER = "X-Internal-Api-Key";
 
-    // sửa lỗi #1: gắn internal key cho 2 lời gọi đọc này - trước đây gọi trần,
-    // không kèm credential nào, bị tuition-service (anyRequest().authenticated())
-    // từ chối 401 ngay từ bước đầu của initiatePayment().
+    // Cả hai lời gọi đọc bên dưới đều phải kèm internal key: tuition-service để
+    // anyRequest().authenticated() nên gọi trần sẽ ăn 401.
     public TuitionInfo getTuitionByMssv(String mssv) {
         String url = TUITION_SERVICE_URL + "/api/tuition/" + mssv;
         try {

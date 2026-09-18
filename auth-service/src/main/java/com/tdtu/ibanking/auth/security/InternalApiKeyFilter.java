@@ -17,12 +17,11 @@ import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-//sửa cho p22:  thêm GET /api/auth/users/* vào danh sách bảo vệ bằng
-//internal key - vì AuthServiceCLient.getUserInfo() giờ dùng key thay vì JWT relay
-//sửa lỗi #2: GET /users/* giờ chấp nhận CẢ internal key LẪN JWT của chính chủ -
-//trước đây thiếu key là bị chặn cứng dù có JWT hợp lệ, khiến người dùng không tự
-//xem được thông tin tài khoản của mình qua gateway. debit/credit vẫn bắt buộc
-//internal key tuyệt đối, JWT không thay thế được.
+/**
+ * Hai mức bảo vệ khác nhau: debit/credit chỉ service nội bộ được gọi, còn
+ * GET /users/* thì người dùng cũng phải xem được thông tin của chính mình qua
+ * gateway, nên chấp nhận cả internal key lẫn JWT chính chủ.
+ */
 public class InternalApiKeyFilter extends OncePerRequestFilter {
 
     private static final String HEADER_NAME = "X-Internal-Api-Key";

@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 import java.util.Map;
-//sửa cho P-11: mỗi loại lỗi trả đúng mã HTTP
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {

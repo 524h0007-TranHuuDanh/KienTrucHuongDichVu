@@ -18,10 +18,10 @@ import com.tdtu.ibanking.account.repository.AccountRepository;
 /**
  * Lớp cha cho mọi test chạm database, copy nguyên cơ chế từ
  * {@code auth-service/.../support/AbstractPostgresIT.java} (đổi User -> Account,
- * authdb -> accountdb). KHÔNG được gỡ static block set {@code api.version=1.41} -
+ * authdb -> accountdb). không được gỡ static block set {@code api.version=1.41} -
  * gỡ là Testcontainers không kết nối được Docker Engine trên máy này.
  *
- * <p>Dùng Postgres thật qua Testcontainers (KHÔNG dùng H2) vì các hành vi đang được
+ * <p>Dùng Postgres thật qua Testcontainers (không dùng H2) vì các hành vi đang được
  * kiểm thử phụ thuộc trực tiếp vào Postgres: {@code SELECT ... FOR UPDATE} của
  * {@code AccountRepository.findDefaultByUserIdForUpdate} và ràng buộc
  * {@code UNIQUE(transaction_id, type)} trên bảng {@code balance_entries}.
@@ -30,7 +30,7 @@ import com.tdtu.ibanking.account.repository.AccountRepository;
  * không bao giờ bị JUnit dừng giữa chừng, nên mọi lớp test dùng chung một container
  * và Spring context được cache lại (chỉ khởi động một lần cho cả module).
  *
- * <p>Cố tình KHÔNG đánh {@code @Transactional} lên các lớp test: test đồng thời chạy
+ * <p>Cố tình không đánh {@code @Transactional} lên các lớp test: test đồng thời chạy
  * trên nhiều thread, mỗi thread mở transaction riêng và commit thật; nếu test cha
  * rollback thì sẽ che mất dữ liệu các thread con đã commit.
  */
@@ -62,7 +62,7 @@ public abstract class AbstractPostgresIT {
     }
 
     /**
-     * application.yml khai báo {@code internal.api-key: ${INTERNAL_API_KEY}} KHÔNG có
+     * application.yml khai báo {@code internal.api-key: ${INTERNAL_API_KEY}} không có
      * giá trị mặc định, nên context sẽ không khởi động được nếu không set ở đây.
      */
     @DynamicPropertySource
@@ -81,7 +81,7 @@ public abstract class AbstractPostgresIT {
     protected AccountRepository accountRepository;
 
     /**
-     * Tạo account mặc định RIÊNG cho từng test với userId/accountNumber ngẫu nhiên
+     * Tạo account mặc định riêng cho từng test với userId/accountNumber ngẫu nhiên
      * (accountNumber UNIQUE), để không phụ thuộc và không làm bẩn dữ liệu demo do
      * DemoDataSeeder của auth-service tạo qua account-service khi seed.
      */

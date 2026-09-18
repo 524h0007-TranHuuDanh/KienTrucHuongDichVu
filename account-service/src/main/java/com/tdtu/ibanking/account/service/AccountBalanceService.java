@@ -39,7 +39,7 @@ public class AccountBalanceService {
 
     /**
      * Tạo account mặc định cho user - idempotent: nếu đã có account mặc định thì trả
-     * về nguyên trạng (KHÔNG ghi đè số dư dù request có gửi initialBalance khác).
+     * về nguyên trạng (không ghi đè số dư dù request có gửi initialBalance khác).
      */
     @Transactional
     public AccountResponse createDefaultAccount(UUID userId, BigDecimal initialBalance) {

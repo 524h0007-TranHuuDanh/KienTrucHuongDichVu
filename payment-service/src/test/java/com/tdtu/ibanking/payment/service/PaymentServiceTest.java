@@ -162,7 +162,7 @@ class PaymentServiceTest extends AbstractPaymentIT {
                 .isInstanceOf(InsufficientBalanceException.class)
                 .hasMessage("Học phí đã được người khác thanh toán");
 
-        // Tiền đã trừ phải được hoàn lại ĐÚNG BẰNG số đã trừ.
+        // Tiền đã trừ phải được hoàn lại đúng bằng số đã trừ.
         ArgumentCaptor<BigDecimal> debited = ArgumentCaptor.forClass(BigDecimal.class);
         verify(authServiceClient).debit(eq(userId), debited.capture(), eq(txId));
 

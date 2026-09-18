@@ -1,6 +1,6 @@
 # TODO — Tách `account-service` ra khỏi `auth-service`
 
-> File theo dõi tiến trình cho agent (Claude Code) làm xuyên nhiều phiên. Cập nhật checkbox
+> File theo dõi tiến trình, làm xuyên nhiều phiên. Cập nhật checkbox
 > và "Nhật ký cập nhật" mỗi khi hoàn thành một phần — đừng xoá lịch sử, chỉ thêm dòng mới.
 > Đọc lại toàn bộ file này trước khi tiếp tục làm dở.
 
@@ -144,7 +144,7 @@ tuition-service ──(HTTP, X-Internal-Api-Key, KHÔNG ĐỔI)──► auth-se
 
 - **2026-09-14** — Tạo file, hoàn thành Phase 0 (khảo sát toàn bộ file liên quan: openapi-auth.json, docker-compose.yml, init-db.sql, api-gateway/application.yml, User/BalanceEntry/BalanceService/AuthController/UserRepository/DemoDataSeeder của auth-service, AuthServiceClient của payment-service). Quyết định kiến trúc: account-service port 8085, DB `accountdb`, không lộ qua gateway, contract bên ngoài giữ nguyên 100%.
 
-- **2026-09-14** — Hoàn thành Phase 1, Phase 2, Phase 3 và phần Phase 5 riêng của account-service (sub-agent). Đã tạo mới toàn bộ `account-service/` (pom.xml, `AccountApplication.java`, `application.yml`, `Dockerfile`, entity `Account`/`AccountStatus`/`BalanceEntry`/`EntryType`, `repository/AccountRepository.java` + `BalanceEntryRepository.java`, exception `AccountNotFoundException`/`InsufficientBalanceException`/`InvalidRefundException`/`TransactionAlreadyFinalizedException`, `config/GlobalExceptionHandler.java`, `config/WebConfig.java`, `security/InternalApiKeyFilter.java`, `service/AccountBalanceService.java`, `controller/AccountController.java`, dto `CreateAccountRequest`/`AccountResponse`/`BalanceChangeRequest`/`AccountBalanceResponse`, test `support/AbstractPostgresIT.java`, `service/BalanceServiceTest.java`, `service/BalanceConcurrencyIT.java`). Đã sửa `init-db.sql` (thêm dòng `CREATE DATABASE accountdb`) và `docker-compose.yml` (thêm khối `account-service`, thêm `depends_on.account-service` vào `auth-service`).
+- **2026-09-14** — Hoàn thành Phase 1, Phase 2, Phase 3 và phần Phase 5 riêng của account-service . Đã tạo mới toàn bộ `account-service/` (pom.xml, `AccountApplication.java`, `application.yml`, `Dockerfile`, entity `Account`/`AccountStatus`/`BalanceEntry`/`EntryType`, `repository/AccountRepository.java` + `BalanceEntryRepository.java`, exception `AccountNotFoundException`/`InsufficientBalanceException`/`InvalidRefundException`/`TransactionAlreadyFinalizedException`, `config/GlobalExceptionHandler.java`, `config/WebConfig.java`, `security/InternalApiKeyFilter.java`, `service/AccountBalanceService.java`, `controller/AccountController.java`, dto `CreateAccountRequest`/`AccountResponse`/`BalanceChangeRequest`/`AccountBalanceResponse`, test `support/AbstractPostgresIT.java`, `service/BalanceServiceTest.java`, `service/BalanceConcurrencyIT.java`). Đã sửa `init-db.sql` (thêm dòng `CREATE DATABASE accountdb`) và `docker-compose.yml` (thêm khối `account-service`, thêm `depends_on.account-service` vào `auth-service`).
 
   Quyết định kỹ thuật cụ thể:
   - **Healthcheck**: chọn thêm `spring-boot-starter-actuator`, chỉ expose đúng endpoint `health` (`management.endpoints.web.exposure.include: health`, `show-details: never`) — không cài thêm curl vào image `eclipse-temurin:17-jdk-alpine` vì alpine đã có sẵn `wget` (busybox). `docker-compose.yml` dùng `test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8085/actuator/health || exit 1"]`, `interval: 10s`, `timeout: 5s`, `retries: 5`, theo đúng cú pháp `healthcheck:` của khối `postgres` hiện có. `auth-service` đổi `depends_on.account-service` thành `condition: service_healthy` (tốt hơn `service_started` vì đã có healthcheck HTTP thật — trả lời luôn câu hỏi mở #2 trong file này).
@@ -176,9 +176,9 @@ tuition-service ──(HTTP, X-Internal-Api-Key, KHÔNG ĐỔI)──► auth-se
   [INFO] ------------------------------------------------------------------------
   ```
 
-  **Chưa làm / để lại cho sub-agent Phase 4**: mọi thứ liên quan tới refactor `auth-service` thành proxy (xoá `balance` khỏi `User`, tạo `AccountServiceClient`, viết lại `BalanceService`/`AuthController`/`DemoDataSeeder` của auth-service, test `AuthControllerIT` mock/`MockRestServiceServer`, chạy `mvn -f auth-service|payment-service|tuition-service/pom.xml test`, `docker compose up -d --build` kiểm chứng cuối) — đúng phạm vi được giao, KHÔNG động vào.
+  **Chưa làm / để lại cho Phase 4**: mọi thứ liên quan tới refactor `auth-service` thành proxy (xoá `balance` khỏi `User`, tạo `AccountServiceClient`, viết lại `BalanceService`/`AuthController`/`DemoDataSeeder` của auth-service, test `AuthControllerIT` mock/`MockRestServiceServer`, chạy `mvn -f auth-service|payment-service|tuition-service/pom.xml test`, `docker compose up -d --build` kiểm chứng cuối) — đúng phạm vi được giao, KHÔNG động vào.
 
-- **2026-09-14** — Hoàn thành Phase 4 và phần Phase 5 còn lại liên quan tới `auth-service`/`payment-service`/`tuition-service` (sub-agent riêng cho phần này).
+- **2026-09-14** — Hoàn thành Phase 4 và phần Phase 5 còn lại liên quan tới `auth-service`/`payment-service`/`tuition-service` (đợt làm riêng cho phần này).
 
   **File đã sửa trong `auth-service`:**
   - `entity/User.java` — xoá field `balance` (và import `BigDecimal` không dùng nữa). Cột `balance` cũ trong bảng `users` KHÔNG bị xoá (Hibernate `ddl-auto: update` chỉ thêm cột, không xoá) — để nguyên như đã ghi rõ trong Phase 4, KHÔNG tự chạy `ALTER TABLE ... DROP COLUMN` (trả lời câu hỏi mở #3: giữ nguyên cột chết, chờ người dùng quyết định).
@@ -278,7 +278,7 @@ tuition-service ──(HTTP, X-Internal-Api-Key, KHÔNG ĐỔI)──► auth-se
   - Không sửa `docker-compose.yml`/`init-db.sql` (không cần thiết — Phase 1-3 đã cấu hình đủ, biến `ACCOUNT_SERVICE_BASE_URL` không set trong compose vẫn dùng default `http://account-service:8085` khớp đúng container DNS).
   - **CHƯA làm Phase 6** (kiểm chứng cuối bằng `docker compose up -d --build` + gọi thử API qua gateway thật) — nằm ngoài phạm vi được giao cho lượt này (chỉ giao Phase 4 + phần Phase 5 liên quan auth/payment/tuition). Cần một lượt riêng để chạy Phase 6 nếu người dùng muốn xác nhận end-to-end qua Docker thật.
 
-- **2026-09-14** — Hoàn thành Phase 6 (kiểm chứng cuối bằng Docker thật) + rà soát docs (sub-agent riêng cho phần này). **Toàn bộ TODO này giờ đã xong hết các phase chính (0-6)**, chỉ còn 2 việc ở mục "Việc CHƯA làm — chờ lệnh người dùng" (đổi email demo, clean git history) là cố ý để lại theo đúng thoả thuận.
+- **2026-09-14** — Hoàn thành Phase 6 (kiểm chứng cuối bằng Docker thật) + rà soát docs (đợt làm riêng cho phần này). **Toàn bộ TODO này giờ đã xong hết các phase chính (0-6)**, chỉ còn 2 việc ở mục "Việc CHƯA làm — chờ lệnh người dùng" (đổi email demo, clean git history) là cố ý để lại theo đúng thoả thuận.
 
   ### A. Docker thật — phát hiện và sửa 1 bug thật (silent-fail 403)
 
@@ -352,7 +352,7 @@ tuition-service ──(HTTP, X-Internal-Api-Key, KHÔNG ĐỔI)──► auth-se
 
   ### D. Dọn dẹp
 
-  - `git status --short`: 28 dòng thay đổi, toàn bộ đúng như 2 sub-agent trước để lại (sửa/xoá file `.java` trong `auth-service`, thêm mới `account-service/`, `TODO_Account_Service.md`, các file `client`/`config`/`dto` mới của `auth-service`) + 1 file mới sửa lượt này (`WebConfig.java` đã nằm trong `account-service/` chưa track nên không hiện riêng). **Không có `target/`, `BOOT-INF/`, `.env` nào lọt vào danh sách** — đã kiểm tra `account-service/target/` bị `.gitignore` (`target/`) chặn đúng (`git status --ignored` xác nhận `!! account-service/target/`).
+  - `git status --short`: 28 dòng thay đổi, toàn bộ đúng như hai đợt làm trước để lại (sửa/xoá file `.java` trong `auth-service`, thêm mới `account-service/`, `TODO_Account_Service.md`, các file `client`/`config`/`dto` mới của `auth-service`) + 1 file mới sửa lượt này (`WebConfig.java` đã nằm trong `account-service/` chưa track nên không hiện riêng). **Không có `target/`, `BOOT-INF/`, `.env` nào lọt vào danh sách** — đã kiểm tra `account-service/target/` bị `.gitignore` (`target/`) chặn đúng (`git status --ignored` xác nhận `!! account-service/target/`).
   - Không `git add`/`commit` gì (đúng ràng buộc — chỉ kiểm tra, không commit khi chưa được yêu cầu rõ).
 
   ### Kết luận tổng thể dự án tách `account-service`

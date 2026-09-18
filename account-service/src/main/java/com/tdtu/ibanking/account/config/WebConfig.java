@@ -15,14 +15,9 @@ import org.springframework.context.annotation.Configuration;
 public class WebConfig {
 
     /**
-     * Bug đã sửa (phát hiện lúc kiểm chứng Docker thật, Phase 6): trước đây filter được
-     * tạo bằng "new InternalApiKeyFilter()" trực tiếp bên trong thân của
-     * internalApiKeyFilterRegistration() — Spring chỉ post-process (bao gồm @Value) đối
-     * tượng THỰC SỰ được @Bean trả về, không "chui vào" tạo instance lồng bên trong như vậy.
-     * Do đó field internalApiKey luôn null, constantTimeEquals(key, null) luôn false ->
-     * MỌI request bị từ chối 403 dù key đúng (silent-fail: log seed vẫn "seeded" vì
-     * DemoDataSeeder chỉ log warning). Khai filter là @Bean riêng (giống cách
-     * auth-service/config/SecurityConfig làm) để @Value được Spring xử lý đúng.
+     * Filter phải là @Bean riêng chứ không được "new" bên trong hàm đăng ký bên dưới:
+     * Spring chỉ inject @Value cho đối tượng do @Bean trả về, nên instance tạo lồng
+     * sẽ có internalApiKey null và từ chối 403 mọi request dù key gửi lên đúng.
      */
     @Bean
     public InternalApiKeyFilter internalApiKeyFilter() {

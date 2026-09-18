@@ -21,12 +21,9 @@ jwt:
 internal:
   api-key: ${INTERNAL_API_KEY}
 
-# URL nội bộ account-service (sở hữu balance/ledger từ Phase 4) - container DNS trong
-# docker-compose, KHÔNG qua api-gateway. Đọc qua env để không hardcode.
+# account-service gọi thẳng qua DNS nội bộ của docker-compose, không vòng qua gateway.
 account-service:
   base-url: ${ACCOUNT_SERVICE_BASE_URL:http://account-service:8085}
-
-# đã đổi lại pass word cho đúng P24
 
 # URL gốc hiển thị trong Swagger UI (trường `servers` của spec).
 # Gateway không giữ Host header gốc nên phải khai báo tường minh,

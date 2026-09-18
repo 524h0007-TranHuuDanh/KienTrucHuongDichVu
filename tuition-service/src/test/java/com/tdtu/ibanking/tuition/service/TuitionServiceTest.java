@@ -115,7 +115,7 @@ class TuitionServiceTest extends AbstractPostgresIT {
         LocalDateTime paidAtAfterFirst = jdbcTemplate.queryForObject(
                 "SELECT paid_at FROM tuitions WHERE id = ?", LocalDateTime.class, tuitionId);
 
-        // goi lai voi CUNG transactionId: khong duoc nem loi, tra ve nguyen trang
+        // goi lai voi cung transactionId: khong duoc nem loi, tra ve nguyen trang
         TuitionDetailResponse second = tuitionService.markPaid(tuitionId, transactionId);
 
         assertThat(second.getId()).isEqualTo(first.getId());
@@ -138,7 +138,7 @@ class TuitionServiceTest extends AbstractPostgresIT {
         assertThatThrownBy(() -> tuitionService.markPaid(tuitionId, otherTransactionId))
                 .isInstanceOf(TuitionAlreadyPaidException.class);
 
-        // transactionId cu KHONG bi ghi de
+        // transactionId cu khong bi ghi de
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT transaction_id FROM tuitions WHERE id = ?", UUID.class, tuitionId))
                 .isEqualTo(firstTransactionId);

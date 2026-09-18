@@ -6,8 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
-//sửa cho p03 +p22 xóa relay Authorization - vì getUserInfo giờ chuyển
-//hẳn sang internal key ở bước 2.9
 @Configuration
 public class RestTemplateConfig {
     @Bean

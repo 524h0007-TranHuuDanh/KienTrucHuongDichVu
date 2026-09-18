@@ -12,7 +12,7 @@ import java.util.UUID;
 /**
  * Tài khoản (số dư) của một user, tách khỏi định danh (auth-service).
  *
- * <p>{@code userId} KHÔNG unique và KHÔNG có FK cross-service (auth-service là DB
+ * <p>{@code userId} không unique và không có FK cross-service (auth-service là DB
  * riêng) - một user có thể có nhiều account trong tương lai, {@code isDefault}
  * đánh dấu account chính dùng cho debit/credit hiện tại.
  */

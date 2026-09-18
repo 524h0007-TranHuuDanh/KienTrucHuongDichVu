@@ -10,9 +10,9 @@ import java.math.BigDecimal;
 /**
  * Body của POST /api/account/users/{userId}/accounts.
  *
- * <p>{@code initialBalance} là optional, chỉ áp dụng khi account mặc định CHƯA tồn
+ * <p>{@code initialBalance} là optional, chỉ áp dụng khi account mặc định chưa tồn
  * tại (dùng cho seeding demo data). Nếu user đã có account mặc định, field này bị
- * bỏ qua hoàn toàn - endpoint idempotent, KHÔNG ghi đè số dư hiện có.
+ * bỏ qua hoàn toàn - endpoint idempotent, không ghi đè số dư hiện có.
  */
 @Data
 @NoArgsConstructor

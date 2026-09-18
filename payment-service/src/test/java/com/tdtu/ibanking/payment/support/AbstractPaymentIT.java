@@ -29,18 +29,18 @@ import com.tdtu.ibanking.payment.service.RateLimiterService;
 /**
  * Lớp cha cho mọi test của payment-service.
  *
- * <p>Postgres THẬT + Redis THẬT qua Testcontainers (không H2, không embedded/mock Redis):
+ * <p>Postgres thật + Redis thật qua Testcontainers (không H2, không embedded/mock Redis):
  * khoá phân tán Redisson trong {@code verifyOtpAndPay} và bộ đếm rate-limit
  * ({@code INCR} + {@code EXPIRE}) chính là thứ đang được kiểm thử, mock đi thì test vô nghĩa.
  *
- * <p>RabbitMQ KHÔNG dựng container: {@code RabbitTemplate} được {@code @MockBean}.
+ * <p>RabbitMQ không dựng container: {@code RabbitTemplate} được {@code @MockBean}.
  * Hai client HTTP sang auth-service/tuition-service cũng là {@code @MockBean}
  * vì đây là test của riêng payment-service.
  *
  * <p>Container là {@code static} và được start trong static block nên JUnit không dừng
  * giữa chừng: mọi lớp test dùng chung một cặp container và một Spring context (context cache).
  *
- * <p>Cố tình KHÔNG đánh {@code @Transactional}: {@code PaymentService} commit thật ở nhiều
+ * <p>Cố tình không đánh {@code @Transactional}: {@code PaymentService} commit thật ở nhiều
  * bước của saga, rollback ở tầng test sẽ che mất đúng thứ cần khẳng định.
  */
 @SpringBootTest
@@ -54,7 +54,7 @@ public abstract class AbstractPaymentIT {
      * "Could not find a valid Docker environment".
      *
      * Ép api.version = 1.41 (tương ứng Docker 20.10+, vẫn chạy được với engine cũ).
-     * Phải đặt TRƯỚC khi container được start ở static block bên dưới.
+     * Phải đặt trước khi container được start ở static block bên dưới.
      */
     static {
         if (System.getProperty("api.version") == null && System.getenv("DOCKER_API_VERSION") == null) {
@@ -85,7 +85,7 @@ public abstract class AbstractPaymentIT {
 
     /**
      * {@code application.yml} khai báo {@code jwt.secret: ${JWT_SECRET}} và
-     * {@code internal.api-key: ${INTERNAL_API_KEY}} KHÔNG có giá trị mặc định,
+     * {@code internal.api-key: ${INTERNAL_API_KEY}} không có giá trị mặc định,
      * thiếu là context không khởi động được.
      *
      * <p>{@code spring.data.redis.*} vừa cho Spring Data Redis vừa cho

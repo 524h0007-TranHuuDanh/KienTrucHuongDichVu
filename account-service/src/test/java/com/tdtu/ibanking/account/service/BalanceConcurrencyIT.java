@@ -24,7 +24,7 @@ import com.tdtu.ibanking.account.exception.InsufficientBalanceException;
 import com.tdtu.ibanking.account.support.AbstractPostgresIT;
 
 /**
- * RACE #1 (rubric 6.2): nhiều giao dịch đồng thời trên CÙNG MỘT account
+ * RACE #1 (rubric 6.2): nhiều giao dịch đồng thời trên cùng một account
  * không được phép chi vượt số dư. Chuyển nguyên từ
  * {@code auth-service/.../BalanceConcurrencyIT.java}, đổi User -> Account,
  * userId -> accountId/userId của account-service. Ý nghĩa test race-condition
@@ -37,7 +37,7 @@ import com.tdtu.ibanking.account.support.AbstractPostgresIT;
  * <p>Dùng starting gate (ready/start/done latch) để các thread thật sự chạy chồng
  * lấn nhau; nếu chỉ submit tuần tự thì test vẫn xanh kể cả khi khoá bị hỏng.
  *
- * <p>KHÔNG đánh {@code @Transactional} lên lớp test: mỗi thread con chạy transaction
+ * <p>không đánh {@code @Transactional} lên lớp test: mỗi thread con chạy transaction
  * riêng và commit thật, rollback của test cha sẽ che mất dữ liệu đó.
  */
 class BalanceConcurrencyIT extends AbstractPostgresIT {

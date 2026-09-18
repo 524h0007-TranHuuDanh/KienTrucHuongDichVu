@@ -13,10 +13,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 /**
- * account-service KHÔNG có Spring Security/JWT (không login trực tiếp end-user) -
+ * account-service không có Spring Security/JWT (không login trực tiếp end-user) -
  * toàn bộ endpoint dưới /api/account/** bắt buộc header X-Internal-Api-Key, khác
  * với auth-service (nơi filter gốc này còn phải phối hợp với JWT cho GET /users/*).
- * Đăng ký urlPatterns=/api/account/* trong config/WebConfig để KHÔNG chặn
+ * Đăng ký urlPatterns=/api/account/* trong config/WebConfig để không chặn
  * /actuator/health (dùng cho healthcheck docker-compose, không cần xác thực) và
  * /swagger-ui, /v3/api-docs.
  */
