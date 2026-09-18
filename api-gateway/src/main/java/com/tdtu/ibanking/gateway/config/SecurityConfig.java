@@ -35,6 +35,11 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of("http://localhost:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // Mặc định CORS chỉ cho JS đọc 7 header an toàn, Retry-After không nằm trong
+        // đó. FE parse nó ở response 429 của /payments/initiate (client.ts, nhánh dự
+        // phòng khi body không có retryAfterSeconds) nên phải expose tường minh —
+        // "*" không dùng được vì allowCredentials = true.
+        config.setExposedHeaders(List.of("Retry-After"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
