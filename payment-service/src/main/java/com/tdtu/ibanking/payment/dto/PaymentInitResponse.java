@@ -12,6 +12,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class PaymentInitResponse {
     private UUID transactionId;
+    private UUID tuitionId;
+    private String semester;
     private BigDecimal amount;
     private BigDecimal balance;
 }

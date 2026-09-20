@@ -83,7 +83,8 @@ public class PaymentService {
             boolean otpStillValid = Boolean.TRUE.equals(redisTemplate.hasKey(OTP_PREFIX + existing.getId()));
 
             if (otpStillValid && existing.getUserId().equals(userId)) {
-                return new PaymentInitResponse(existing.getId(), existing.getAmount(), userInfo.getBalance());
+                return new PaymentInitResponse(existing.getId(), existing.getTuitionId(),
+                        existing.getSemester(), existing.getAmount(), userInfo.getBalance());
             }
             if (otpStillValid) {
                 throw new InsufficientBalanceException(
@@ -99,6 +100,7 @@ public class PaymentService {
         transaction.setTuitionId(tuitionInfo.getId());
         transaction.setMssv(tuitionInfo.getMssv());
         transaction.setStudentName(tuitionInfo.getStudentName());
+        transaction.setSemester(tuitionInfo.getSemester());
         transaction.setAmount(tuitionInfo.getAmount());
         transaction.setStatus(TransactionStatus.PENDING);
         transaction = transactionRepository.save(transaction);
@@ -135,7 +137,8 @@ public class PaymentService {
 
         log.info("OTP sent to {} for transaction {}", maskEmail(userInfo.getEmail()), transaction.getId());
 
-        return new PaymentInitResponse(transaction.getId(), transaction.getAmount(), userInfo.getBalance());
+        return new PaymentInitResponse(transaction.getId(), transaction.getTuitionId(),
+                transaction.getSemester(), transaction.getAmount(), userInfo.getBalance());
     }
 
     public PaymentSuccessResponse verifyOtpAndPay(UUID transactionId, String otp, UUID userId) {
@@ -410,8 +413,8 @@ public class PaymentService {
     public List<TransactionHistoryItem> getTransactionHistory(UUID userId) {
         return transactionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(t -> new TransactionHistoryItem(
-                        t.getId(), t.getTuitionId(), t.getMssv(), t.getStudentName(), t.getAmount(), t.getStatus(),
-                        t.getErrorMessage(), t.getCreatedAt(), t.getUpdatedAt()))
+                        t.getId(), t.getTuitionId(), t.getMssv(), t.getStudentName(), t.getSemester(),
+                        t.getAmount(), t.getStatus(), t.getErrorMessage(), t.getCreatedAt(), t.getUpdatedAt()))
                 .toList();
     }
 

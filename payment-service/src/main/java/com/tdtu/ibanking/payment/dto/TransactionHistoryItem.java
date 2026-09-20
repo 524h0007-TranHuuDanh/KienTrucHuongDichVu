@@ -17,6 +17,7 @@ public class TransactionHistoryItem {
     private UUID tuitionId;
     private String mssv;
     private String studentName;
+    private String semester;
     private BigDecimal amount;
     private TransactionStatus status;
     private String errorMessage;

@@ -14,6 +14,7 @@ public class TuitionInfo {
     private UUID id;
     private String mssv;
     private String studentName;
+    private String semester;
     private BigDecimal amount;
     private Boolean paid;
 }
