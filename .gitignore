@@ -34,3 +34,6 @@ dependency-reduced-pom.xml
 # ===== Hệ điều hành =====
 .DS_Store
 Thumbs.db
+
+.env
+*.env

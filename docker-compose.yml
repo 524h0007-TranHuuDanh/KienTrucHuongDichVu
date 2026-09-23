@@ -89,8 +89,8 @@ services:
     container_name: ibanking-payment
     environment:
       DB_HOST: postgres
-      DB_USER: ${DB_USER:-payment_user}
-      DB_PASSWORD: ${DB_PASSWORD:-payment_pass}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       RABBITMQ_HOST: rabbitmq
