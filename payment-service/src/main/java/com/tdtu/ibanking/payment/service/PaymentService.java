@@ -92,8 +92,10 @@ public class PaymentService {
             boolean otpStillValid = Boolean.TRUE.equals(redisTemplate.hasKey(OTP_PREFIX + existing.getId()));
 
             if (otpStillValid && existing.getUserId().equals(userId)) {
+                Long ttl = redisTemplate.getExpire(OTP_PREFIX + existing.getId(), TimeUnit.SECONDS);
+                OffsetDateTime expiresAt = OffsetDateTime.now().plusSeconds(ttl != null && ttl > 0 ? ttl : 0);
                 return new PaymentInitResponse(existing.getId(), existing.getTuitionId(),
-                        existing.getSemester(), existing.getAmount(), userInfo.getBalance());
+                        existing.getSemester(), existing.getAmount(), userInfo.getBalance(), expiresAt);
             }
             if (otpStillValid) {
                 throw new InsufficientBalanceException(
@@ -123,6 +125,7 @@ public class PaymentService {
         transaction = transactionRepository.save(transaction);
 
         String otp = issueOtp(transaction.getId());
+        OffsetDateTime otpExpiresAt = OffsetDateTime.now().plusMinutes(OTP_TTL_MINUTES);
         if (otp == null) {
             transaction.setStatus(TransactionStatus.FAILED);
             transaction.setErrorMessage("Không sinh được mã OTP");
@@ -160,7 +163,7 @@ public class PaymentService {
         log.info("OTP sent to {} for transaction {}", maskEmail(userInfo.getEmail()), transaction.getId());
 
         return new PaymentInitResponse(transaction.getId(), transaction.getTuitionId(),
-                transaction.getSemester(), transaction.getAmount(), userInfo.getBalance());
+                transaction.getSemester(), transaction.getAmount(), userInfo.getBalance(), otpExpiresAt);
     }
 
     public PaymentSuccessResponse verifyOtpAndPay(UUID transactionId, String otp, UUID userId) {

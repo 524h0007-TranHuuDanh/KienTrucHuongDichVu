@@ -294,4 +294,25 @@ class PaymentServiceTest extends AbstractPaymentIT {
         assertThat(json).containsPattern("\"createdAt\":\"[^\"]+(Z|[+-][0-9]{2}:[0-9]{2})\"");
         assertThat(json).containsPattern("\"updatedAt\":\"[^\"]+(Z|[+-][0-9]{2}:[0-9]{2})\"");
     }
+
+    // ------------------------------------------------------------------ (j)
+
+    @Test
+    @DisplayName("initiate lại khi OTP còn hạn: trả đúng giao dịch cũ kèm hạn OTP thật, không gia hạn thêm")
+    void initiateLai_traHanOtpThat() {
+        UUID userId = UUID.randomUUID();
+        // Cùng một khoản học phí cho cả hai lần (helper initiate() sinh tuitionId mới mỗi lần gọi).
+        when(tuitionServiceClient.getTuitionByMssv("52100011")).thenReturn(unpaidTuition("52100011", AMOUNT));
+        when(authServiceClient.getUserInfo(userId)).thenReturn(userWithBalance(userId, BALANCE));
+        PaymentInitResponse first = paymentService.initiatePayment("52100011", userId);
+        assertThat(first.getOtpExpiresAt()).isNotNull();
+
+        // Rút TTL còn 60 giây để thấy rõ response lần hai không cộng lại 5 phút.
+        redisTemplate.expire(OTP_PREFIX + first.getTransactionId(), 60, java.util.concurrent.TimeUnit.SECONDS);
+        PaymentInitResponse again = paymentService.initiatePayment("52100011", userId);
+
+        assertThat(again.getTransactionId()).isEqualTo(first.getTransactionId());
+        assertThat(again.getOtpExpiresAt()).isBefore(java.time.OffsetDateTime.now().plusSeconds(65));
+        assertThat(again.getOtpExpiresAt()).isAfter(java.time.OffsetDateTime.now().plusSeconds(50));
+    }
 }
