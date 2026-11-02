@@ -20,6 +20,8 @@ spring:
               - OPTIONS
             allowedHeaders:
               - "*"
+            exposedHeaders:
+              - "Retry-After"
             allowCredentials: true
       routes:
         - id: auth-service-docs
