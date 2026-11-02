@@ -42,6 +42,10 @@ public class PaymentService {
     private final RateLimiterService rateLimiterService;
 
     private static final String OTP_PREFIX = "otp:";
+    // Giá trị OTP -> transactionId đang giữ nó. Đề bài yêu cầu OTP không được trùng với
+    // OTP còn hiệu lực của giao dịch khác, nên mỗi mã phải được "giữ chỗ" trước khi phát.
+    private static final String OTP_ACTIVE_PREFIX = "otp:active:";
+    private static final int OTP_ISSUE_MAX_TRIES = 10;
     private static final int OTP_TTL_MINUTES = 5;
     private static final int MAX_NETWORK_RETRIES = 2;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -107,8 +111,13 @@ public class PaymentService {
         transaction.setStatus(TransactionStatus.PENDING);
         transaction = transactionRepository.save(transaction);
 
-        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
-        redisTemplate.opsForValue().set(OTP_PREFIX + transaction.getId(), otp, OTP_TTL_MINUTES, TimeUnit.MINUTES);
+        String otp = issueOtp(transaction.getId());
+        if (otp == null) {
+            transaction.setStatus(TransactionStatus.FAILED);
+            transaction.setErrorMessage("Không sinh được mã OTP");
+            transactionRepository.save(transaction);
+            throw new ServiceBusyException("Hệ thống đang bận, vui lòng thử lại");
+        }
 
         // Gửi hỏng thì OTP vừa lưu thành rác và giao dịch không bao giờ xác thực được,
         // nên dọn luôn thay vì để nó treo PENDING hết 5 phút.
@@ -126,7 +135,7 @@ public class PaymentService {
             rabbitTemplate.convertAndSend("email_queue", email);
         } catch (Exception e) {
             log.error("Không gửi được OTP cho transaction {}: {}", transaction.getId(), e.getMessage());
-            redisTemplate.delete(OTP_PREFIX + transaction.getId());
+            deleteOtp(transaction.getId());
             transaction.setStatus(TransactionStatus.FAILED);
             transaction.setErrorMessage("Không gửi được mã OTP");
             transactionRepository.save(transaction);
@@ -188,7 +197,7 @@ public class PaymentService {
                 transaction.setStatus(TransactionStatus.FAILED);
                 transaction.setErrorMessage(failMsg);
                 transactionRepository.save(transaction);
-                redisTemplate.delete(OTP_PREFIX + transactionId);
+                deleteOtp(transactionId);
                 throw new RateLimitExceededException(failMsg, retryAfter);
             }
 
@@ -203,7 +212,7 @@ public class PaymentService {
                     transaction.setStatus(TransactionStatus.FAILED);
                     transaction.setErrorMessage("Nhập sai OTP quá số lần cho phép");
                     transactionRepository.save(transaction);
-                    redisTemplate.delete(OTP_PREFIX + transactionId);
+                    deleteOtp(transactionId);
                 }
                 throw new InvalidOtpException("OTP không hợp lệ hoặc đã hết hạn", remaining);
             }
@@ -239,7 +248,7 @@ public class PaymentService {
 
         // Giao dịch đã chốt: OTP không còn giá trị, và lần sai trước đó không nên
         // tính vào hạn mức của người dùng nữa.
-        redisTemplate.delete(OTP_PREFIX + transactionId);
+        deleteOtp(transactionId);
         rateLimiterService.clearAttempts(transactionId);
         rateLimiterService.clearUserFails(userId);
 
@@ -346,7 +355,7 @@ public class PaymentService {
         transaction.setErrorMessage(message);
         transactionRepository.save(transaction);
         // Mọi nhánh hỏng đều đi qua đây, nên dọn OTP một chỗ là đủ.
-        redisTemplate.delete(OTP_PREFIX + transaction.getId());
+        deleteOtp(transaction.getId());
         rateLimiterService.clearAttempts(transaction.getId());
     }
 
@@ -403,6 +412,39 @@ public class PaymentService {
         return new PaymentSuccessResponse(
                 transaction.getId(), "SUCCESS", transaction.getAmount(),
                 balance, LocalDateTime.now(), message);
+    }
+
+    /**
+     * Sinh OTP chưa bị giao dịch nào khác đang giữ. {@code SETNX} trên khoá giá trị là
+     * atomic nên hai giao dịch sinh trùng mã cùng lúc thì chỉ một bên giữ được, bên kia
+     * sinh lại. Khoá giá trị và khoá theo giao dịch cùng TTL nên hết hạn cùng nhau.
+     * Trả null nếu thử mãi vẫn trùng (gần như không thể với 10^6 mã).
+     */
+    private String issueOtp(UUID transactionId) {
+        for (int i = 0; i < OTP_ISSUE_MAX_TRIES; i++) {
+            String otp = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
+            Boolean reserved = redisTemplate.opsForValue().setIfAbsent(
+                    OTP_ACTIVE_PREFIX + otp, transactionId.toString(), OTP_TTL_MINUTES, TimeUnit.MINUTES);
+            if (Boolean.TRUE.equals(reserved)) {
+                redisTemplate.opsForValue().set(OTP_PREFIX + transactionId, otp, OTP_TTL_MINUTES, TimeUnit.MINUTES);
+                return otp;
+            }
+        }
+        log.error("Không sinh được OTP không trùng sau {} lần cho transaction {}", OTP_ISSUE_MAX_TRIES, transactionId);
+        return null;
+    }
+
+    /** Xoá OTP của giao dịch và nhả giá trị đó ra cho giao dịch khác dùng. */
+    private void deleteOtp(UUID transactionId) {
+        String otp = (String) redisTemplate.opsForValue().get(OTP_PREFIX + transactionId);
+        redisTemplate.delete(OTP_PREFIX + transactionId);
+        if (otp == null) return;
+        // Chỉ xoá khi giá trị vẫn đang thuộc giao dịch này: nếu khoá cũ đã hết hạn và mã
+        // được phát lại cho giao dịch khác thì không được nhả hộ.
+        Object holder = redisTemplate.opsForValue().get(OTP_ACTIVE_PREFIX + otp);
+        if (transactionId.toString().equals(holder)) {
+            redisTemplate.delete(OTP_ACTIVE_PREFIX + otp);
+        }
     }
 
     private boolean constantTimeEquals(String a, String b) {

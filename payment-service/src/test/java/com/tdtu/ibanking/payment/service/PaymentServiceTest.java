@@ -220,4 +220,30 @@ class PaymentServiceTest extends AbstractPaymentIT {
         assertThat(transactionRepository.count()).isZero();
         verify(authServiceClient, never()).getUserInfo(any());
     }
+
+    // ------------------------------------------------------------------ (g)
+
+    @Test
+    @DisplayName("OTP được giữ chỗ theo giá trị: hai giao dịch đang hiệu lực không trùng mã, chốt xong thì nhả")
+    void otpDangHieuLuc_khongTrungVaDuocNhaKhiChot() {
+        UUID userA = UUID.randomUUID();
+        UUID userB = UUID.randomUUID();
+        UUID txA = initiate(userA, "52100007").getTransactionId();
+        UUID txB = initiate(userB, "52100008").getTransactionId();
+        String otpA = readOtp(txA);
+        String otpB = readOtp(txB);
+
+        assertThat(otpA).isNotEqualTo(otpB);
+        assertThat(redisTemplate.opsForValue().get("otp:active:" + otpA)).isEqualTo(txA.toString());
+        assertThat(redisTemplate.opsForValue().get("otp:active:" + otpB)).isEqualTo(txB.toString());
+
+        // Sai đủ 3 lần -> giao dịch A chốt FAILED, mã của A phải được nhả, mã của B giữ nguyên.
+        String wrong = wrongOtpFor(otpA).equals(otpB) ? "222222" : wrongOtpFor(otpA);
+        for (int i = 0; i < 3; i++) {
+            catchThrowableOfType(() -> paymentService.verifyOtpAndPay(txA, wrong, userA), InvalidOtpException.class);
+        }
+        assertThat(reload(txA).getStatus()).isEqualTo(TransactionStatus.FAILED);
+        assertThat(redisTemplate.hasKey("otp:active:" + otpA)).isFalse();
+        assertThat(redisTemplate.opsForValue().get("otp:active:" + otpB)).isEqualTo(txB.toString());
+    }
 }
