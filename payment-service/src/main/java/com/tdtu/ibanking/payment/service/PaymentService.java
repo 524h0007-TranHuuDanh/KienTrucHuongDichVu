@@ -97,7 +97,7 @@ public class PaymentService {
                         "Khoản học phí này đang được người khác xử lý thanh toán, vui lòng thử lại sau ít phút");
             }
             existing.setStatus(TransactionStatus.FAILED);
-            existing.setErrorMessage("Hết hạn OTP, không xác nhận trong thời gian quy định");
+            existing.setErrorMessage(PendingTransactionExpiryJob.EXPIRED_MESSAGE);
             transactionRepository.save(existing);
         }
 

@@ -106,6 +106,8 @@ public abstract class AbstractPaymentIT {
 
         registry.add("jwt.secret", () -> TEST_JWT_SECRET);
         registry.add("internal.api-key", () -> TEST_INTERNAL_API_KEY);
+        // Job quét giao dịch quá hạn được gọi tay trong test; không để nó tự chạy chen vào.
+        registry.add("payment.expiry-sweep-ms", () -> "3600000");
     }
 
     protected static final String OTP_PREFIX = "otp:";
