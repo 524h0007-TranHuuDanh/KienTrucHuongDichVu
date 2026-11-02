@@ -5,7 +5,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 
 **Ký hiệu:** ✅ đã hoàn thành · ⚠️ làm một phần / có rủi ro khi chấm · ❌ chưa có
 
-**Ước lượng tổng: ~7.0 / 10** (chi tiết ở mục "Bảng tổng hợp điểm").
+**Ước lượng tổng: ~7.75 / 10** *(cập nhật 02/11/2026 sau khi có frontend)* (chi tiết ở mục "Bảng tổng hợp điểm").
 
 > **Đã kiểm chứng bằng cách chạy thật, ngày 07/09/2026** — không chỉ đọc code:
 > `mvn test` xanh ở cả 3 module (**auth 10 / tuition 11 / payment 7 = 28 test, 0 failure, 0 error**, `BUILD SUCCESS` ×3),
@@ -83,9 +83,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 
 | # | Yêu cầu | Trạng thái | Bằng chứng / Ghi chú |
 |---|---|---|---|
-| 7.1 | Giao diện hỗ trợ toàn bộ luồng: đăng nhập → tra cứu → thanh toán → OTP → kết quả/lịch sử, tích hợp thật với backend | ❌ | **Không có frontend trong repo.** Chỉ có 5 service Spring Boot (chính `README.md` cũng ghi rõ "repo này là backend thuần"). Gateway đã bật CORS sẵn cho `http://localhost:5173` (Vite) nhưng chưa có ứng dụng nào dùng. |
-
-> Đây là mục **mất điểm chắc chắn** nếu không bổ sung, và còn kéo theo rủi ro cho mục 8.3 (demo).
+| 7.1 | Giao diện hỗ trợ toàn bộ luồng: đăng nhập → tra cứu → thanh toán → OTP → kết quả/lịch sử, tích hợp thật với backend | ✅ | ✅ *(cập nhật 02/11/2026)* Repo riêng `Frontend-midterm` (React 19 + Vite + TanStack Query) có đủ 5 màn hình SCR-01 → SCR-05, gọi API thật qua gateway `:8080` (CORS `:5173`). Đã đi hết luồng trên Chrome với backend thật: sai mật khẩu, 3 trạng thái tra cứu MSSV, OTP sai rồi đúng, kết quả, lịch sử, Back không quay lại màn OTP. |
 
 ---
 
@@ -95,7 +93,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 |---|---|---|---|
 | 8.1 | README/tài liệu hướng dẫn cài đặt, cấu hình, khởi chạy (0.5) | ✅ | `README.md` rất đầy đủ: kiến trúc, bảng API, luồng saga, hướng dẫn build/chạy, tài khoản demo, cách lấy OTP từ Redis, cách reset rate-limit. Kèm `docs/plan.md`, `docs/CHANGES-AUTH-PAYMENT.md`, `docs/LOI-PAYMENT-SERVICE.md`, `docs/TIEN-DO-FIX-BUG.md`. ✅ *(đã sửa 06/09/2026)* Hai điểm lệch trước đây — bảng MSSV demo và `.env.example` thiếu `INTERNAL_API_KEY` (copy file mẫu sẽ khiến mọi lời gọi service-to-service trả 403) — đều đã được vá. |
 | 8.2 | Các thành phần triển khai và tích hợp chạy hoàn chỉnh; khuyến khích Docker/Docker Compose (0.5) | ✅ | `docker-compose.yml` dựng đủ Postgres (healthcheck) + Redis + RabbitMQ + 5 service, có `depends_on`, biến môi trường qua `.env`, `Dockerfile` cho từng service, chỉ expose gateway 8080 và notification 8084. |
-| 8.3 | Demo thành công các chức năng chính và giải thích được kiến trúc, API, transaction/concurrency (0.5) | ⚠️ | Backend demo được bằng Postman/curl và giải thích thì tài liệu đã quá đủ. Nhưng **không có UI** nên phần "demo các chức năng chính" sẽ khó trọn vẹn; cộng thêm dữ liệu demo trong README bị lệch (mục 4). Điểm thực tế phụ thuộc buổi bảo vệ. |
+| 8.3 | Demo thành công các chức năng chính và giải thích được kiến trúc, API, transaction/concurrency (0.5) | ✅ | Demo được trọn luồng trên giao diện Web (`Frontend-midterm`) và bằng curl/Swagger; concurrency có `scripts/concurrency-test.sh`. Điểm thực tế vẫn phụ thuộc buổi bảo vệ. |
 
 ---
 
@@ -109,9 +107,9 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 | 4. Database & Data Persistence | 1.0 | **1.0** | Constraints + seed data đầy đủ |
 | 5. Chức năng & Payment Workflow | 2.0 | **2.0** | Toàn bộ luồng backend chạy đúng đặc tả |
 | 6. Transaction & Concurrency | 1.5 | **1.5** | Xử lý đủ cả 2 tình huống race |
-| 7. User Interface & Integration | 0.5 | **0** | Chưa có frontend |
-| 8. Documentation, Deployment & Demo | 1.5 | **~1.25** | README + Docker tốt; demo thiếu UI |
-| **TỔNG** | **10.0** | **≈ 7.0** | |
+| 7. User Interface & Integration | 0.5 | **0.5** | Frontend ở repo `Frontend-midterm`, tích hợp API thật |
+| 8. Documentation, Deployment & Demo | 1.5 | **~1.5** | README + Docker tốt; demo được trên UI |
+| **TỔNG** | **10.0** | **≈ 7.75** | |
 
 ### Đối chiếu "Điều kiện giới hạn điểm"
 
@@ -137,7 +135,7 @@ Nguồn: `docs/rubric-midterm.pdf` (Phiếu chấm điểm giữa kỳ, HK1/2026
 | # | Việc | Điểm ảnh hưởng | Mức độ |
 |---|---|---|---|
 | 1 | ❌ Vẽ **Use Case Diagram** | 0.5 (TC 1) | Bắt buộc |
-| 2 | ❌ Làm **frontend** phủ luồng đăng nhập → tra cứu → thanh toán → OTP → kết quả/lịch sử (gateway đã mở CORS cho `:5173`) | 0.5 (TC 7) + cứu TC 8.3 | Bắt buộc |
+| 2 | ✅ **Đã xong** — **frontend** ở repo `Frontend-midterm` phủ luồng đăng nhập → tra cứu → thanh toán → OTP → kết quả/lịch sử | 0.5 (TC 7) + cứu TC 8.3 | — |
 | 3 | ⚠️ Hoàn thiện **ERD** (thêm `paymentdb.transactions`, xuất thành lược đồ riêng thay vì ASCII trong `plan.md`) | 0.5 (TC 1) | Bắt buộc |
 | 4 | ⚠️ Xuất **Architecture Diagram** thành ảnh/draw.io | Gỡ trần 8.0 (TC 2) | Cao |
 | 5 | ✅ **Đã xong** — `README.md` mục 6.3 khớp `data.sql`, `.env.example` đã có `INTERNAL_API_KEY` | TC 8.1 + tránh hỏng demo | — |

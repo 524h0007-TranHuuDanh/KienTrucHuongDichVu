@@ -6,9 +6,11 @@ gửi qua email, và toàn bộ luồng đảm bảo tính nhất quán dữ li�
 
 Đề bài gốc: [`docs/MidtermVIHK12627.md`](docs/MidtermVIHK12627.md).
 
-> Repo này là **backend thuần** (không có frontend). Đề bài yêu cầu giao diện Web nhưng thư mục hiện tại
-> chỉ có 6 service Spring Boot (`account-service` mới tách từ `auth-service`, chỉ nội bộ — không lộ
-> qua gateway, không tính vào số service "public" của đề bài) + hạ tầng Docker Compose.
+> Repo này chứa **phần backend**: 6 service Spring Boot (`account-service` mới tách từ `auth-service`,
+> chỉ nội bộ — không lộ qua gateway, không tính vào số service "public" của đề bài) + hạ tầng Docker Compose.
+> **Giao diện Web** nằm ở repo riêng `Frontend-midterm` (React 19 + Vite, chạy `npm run dev` ở
+> `http://localhost:5173` — origin đã được gateway mở CORS), gọi toàn bộ API qua gateway `:8080`.
+> Contract API dành cho frontend: `Frontend-midterm/docs/API-FRONTEND.md`.
 
 ---
 
@@ -75,7 +77,7 @@ ngoài (`payment-service`/`tuition-service`/Frontend không cần đổi gì).
 - **JJWT 0.11.5** (tự ký/verify JWT, không dùng Keycloak/Auth0)
 - **Redisson 3.27.2** — distributed lock cấp tài khoản khi xác thực OTP
 - **springdoc-openapi 2.3.0** — Swagger UI gộp tại `:8080/swagger-ui.html`
-- **JUnit 5 + Testcontainers 1.19.7 + AssertJ + Mockito** — 33 test tự động chạy trên Postgres/Redis **thật**
+- **JUnit 5 + Testcontainers 1.19.7 + AssertJ + Mockito** — 42 test tự động chạy trên Postgres/Redis **thật**
   (không dùng H2, lý do ở mục 7.1)
 - **Docker Compose** để chạy toàn bộ hệ thống
 
@@ -259,6 +261,12 @@ docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> DEL \
 docker exec ibanking-redis redis-cli -a <REDIS_PASSWORD> --scan --pattern "otp:*"
 ```
 
+Các khoá Redis khác của luồng thanh toán (đều tự hết hạn cùng OTP, 5 phút):
+`otp:active:<otp>` giữ chỗ giá trị OTP để hai giao dịch đang hiệu lực không trùng mã;
+`lock:tuition:<tuitionId>` giữ khoản học phí cho đúng một giao dịch, người thứ hai nhận `409 TUITION_LOCKED`
+ngay ở `initiate`. Giao dịch bỏ dở (huỷ, đóng tab) được job nền chuyển `PENDING → FAILED` sau ~6 phút.
+`bash scripts/concurrency-test.sh` reset toàn bộ các khoá này cùng dữ liệu demo.
+
 ### 6.4 Endpoint hạ tầng
 
 - RabbitMQ management UI: `http://localhost:15672` (user/pass theo `.env`)
@@ -285,7 +293,7 @@ và `SELECT ... FOR UPDATE` trên H2 không phản ánh đúng hành vi khoá �
 mvn -f account-service/pom.xml test     #  6 test
 mvn -f auth-service/pom.xml test        #  9 test
 mvn -f tuition-service/pom.xml test     # 11 test
-mvn -f payment-service/pom.xml test     #  7 test
+mvn -f payment-service/pom.xml test     # 16 test
 ```
 
 Mỗi module chạy khoảng 10–15 giây. Không có parent pom aggregator nên phải chạy từng module.
@@ -299,8 +307,10 @@ Surefire đã được cấu hình chạy cả `*Test` lẫn `*IT`.
 | `tuition-service` | `TuitionServiceTest` (7) | Học phí đến hạn sớm nhất, không tìm thấy, đã đóng hết, `mark-paid` + idempotency |
 | | `TuitionMarkPaidConcurrencyIT` (1) | **Tình huống tranh chấp 2** — 10 thread cùng gạch nợ một khoản học phí |
 | | `TuitionControllerIT` (3) | 401 khi thiếu JWT, 403 khi thiếu internal key, 200 khi đủ |
-| `payment-service` | `PaymentServiceTest` (5) | Sinh OTP + TTL, sai OTP 3 lần → FAILED, luồng thành công, **saga bù trừ**, chống xử lý lặp |
+| `payment-service` | `PaymentServiceTest` (11) | Sinh OTP + TTL, sai OTP 3 lần → FAILED, luồng thành công, **saga bù trừ**, chống xử lý lặp, MSSV không có khoản → 404, OTP đang hiệu lực không trùng nhau, không đóng nhầm giao dịch PROCESSING, thời gian kèm múi giờ, `otpExpiresAt` khi initiate lại, `tuitionId` lệch → `TUITION_CHANGED` |
 | | `RateLimitTest` (2) | Quá 3 OTP/giờ → 429; không trừ quota khi gửi OTP thất bại |
+| | `PendingTransactionExpiryJobTest` (1) | Giao dịch PENDING quá hạn OTP → FAILED; giao dịch còn OTP hoặc đang PROCESSING giữ nguyên |
+| | `TuitionInitiateConcurrencyIT` (2) | 8 người cùng `initiate` một khoản học phí → đúng 1 giao dịch; giao dịch thất bại thì nhả khoản ngay |
 
 ### 7.3. Cô lập dữ liệu
 
