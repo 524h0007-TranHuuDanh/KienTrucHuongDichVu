@@ -48,6 +48,10 @@ public class PaymentService {
     // OTP còn hiệu lực của giao dịch khác, nên mỗi mã phải được "giữ chỗ" trước khi phát.
     private static final String OTP_ACTIVE_PREFIX = "otp:active:";
     private static final int OTP_ISSUE_MAX_TRIES = 10;
+    // Khoản học phí -> transactionId đang giữ nó. Kiểm tra "có giao dịch khác đang chạy"
+    // bằng truy vấn DB ở trên không atomic: hai người bấm cùng lúc đều thấy chưa có gì.
+    // SETNX thì chỉ một người giữ được, người kia bị chặn ngay từ initiate.
+    private static final String TUITION_LOCK_PREFIX = "lock:tuition:";
     private static final int OTP_TTL_MINUTES = 5;
     private static final int MAX_NETWORK_RETRIES = 2;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -114,6 +118,14 @@ public class PaymentService {
                     PendingTransactionExpiryJob.EXPIRED_MESSAGE, LocalDateTime.now());
         }
 
+        String tuitionLockKey = TUITION_LOCK_PREFIX + tuitionInfo.getId();
+        Boolean tuitionLocked = redisTemplate.opsForValue().setIfAbsent(
+                tuitionLockKey, userId.toString(), OTP_TTL_MINUTES, TimeUnit.MINUTES);
+        if (!Boolean.TRUE.equals(tuitionLocked)) {
+            throw new InsufficientBalanceException(
+                    "Khoản học phí này đang được người khác xử lý thanh toán, vui lòng thử lại sau ít phút");
+        }
+
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
         transaction.setTuitionId(tuitionInfo.getId());
@@ -123,6 +135,9 @@ public class PaymentService {
         transaction.setAmount(tuitionInfo.getAmount());
         transaction.setStatus(TransactionStatus.PENDING);
         transaction = transactionRepository.save(transaction);
+        // Đổi giá trị khoá sang transactionId để lúc nhả chỉ nhả đúng khoá của giao dịch này.
+        redisTemplate.opsForValue().set(tuitionLockKey, transaction.getId().toString(),
+                OTP_TTL_MINUTES, TimeUnit.MINUTES);
 
         String otp = issueOtp(transaction.getId());
         OffsetDateTime otpExpiresAt = OffsetDateTime.now().plusMinutes(OTP_TTL_MINUTES);
@@ -130,6 +145,7 @@ public class PaymentService {
             transaction.setStatus(TransactionStatus.FAILED);
             transaction.setErrorMessage("Không sinh được mã OTP");
             transactionRepository.save(transaction);
+            releaseTuitionLock(transaction);
             throw new ServiceBusyException("Hệ thống đang bận, vui lòng thử lại");
         }
 
@@ -149,7 +165,7 @@ public class PaymentService {
             rabbitTemplate.convertAndSend("email_queue", email);
         } catch (Exception e) {
             log.error("Không gửi được OTP cho transaction {}: {}", transaction.getId(), e.getMessage());
-            deleteOtp(transaction.getId());
+            endOtpSession(transaction);
             transaction.setStatus(TransactionStatus.FAILED);
             transaction.setErrorMessage("Không gửi được mã OTP");
             transactionRepository.save(transaction);
@@ -211,7 +227,7 @@ public class PaymentService {
                 transaction.setStatus(TransactionStatus.FAILED);
                 transaction.setErrorMessage(failMsg);
                 transactionRepository.save(transaction);
-                deleteOtp(transactionId);
+                endOtpSession(transaction);
                 throw new RateLimitExceededException(failMsg, retryAfter);
             }
 
@@ -226,7 +242,7 @@ public class PaymentService {
                     transaction.setStatus(TransactionStatus.FAILED);
                     transaction.setErrorMessage("Nhập sai OTP quá số lần cho phép");
                     transactionRepository.save(transaction);
-                    deleteOtp(transactionId);
+                    endOtpSession(transaction);
                 }
                 throw new InvalidOtpException("OTP không hợp lệ hoặc đã hết hạn", remaining);
             }
@@ -262,7 +278,7 @@ public class PaymentService {
 
         // Giao dịch đã chốt: OTP không còn giá trị, và lần sai trước đó không nên
         // tính vào hạn mức của người dùng nữa.
-        deleteOtp(transactionId);
+        endOtpSession(transaction);
         rateLimiterService.clearAttempts(transactionId);
         rateLimiterService.clearUserFails(userId);
 
@@ -369,7 +385,7 @@ public class PaymentService {
         transaction.setErrorMessage(message);
         transactionRepository.save(transaction);
         // Mọi nhánh hỏng đều đi qua đây, nên dọn OTP một chỗ là đủ.
-        deleteOtp(transaction.getId());
+        endOtpSession(transaction);
         rateLimiterService.clearAttempts(transaction.getId());
     }
 
@@ -446,6 +462,19 @@ public class PaymentService {
         }
         log.error("Không sinh được OTP không trùng sau {} lần cho transaction {}", OTP_ISSUE_MAX_TRIES, transactionId);
         return null;
+    }
+
+    /** Giao dịch đã chốt (thành công hoặc thất bại): huỷ OTP và nhả khoản học phí. */
+    private void endOtpSession(Transaction transaction) {
+        deleteOtp(transaction.getId());
+        releaseTuitionLock(transaction);
+    }
+
+    private void releaseTuitionLock(Transaction transaction) {
+        String key = TUITION_LOCK_PREFIX + transaction.getTuitionId();
+        if (transaction.getId().toString().equals(redisTemplate.opsForValue().get(key))) {
+            redisTemplate.delete(key);
+        }
     }
 
     /** Xoá OTP của giao dịch và nhả giá trị đó ra cho giao dịch khác dùng. */

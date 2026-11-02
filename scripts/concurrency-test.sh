@@ -109,9 +109,10 @@ reset_fixtures() {
 
     psql_db paymentdb "DELETE FROM transactions;" >/dev/null
 
-    # Xoá OTP + bộ đếm rate-limit (3 OTP/giờ/user) để chạy lại không bị 429
+    # Xoá OTP + bộ đếm rate-limit (3 OTP/giờ/user) để chạy lại không bị 429, và khoá
+    # giữ khoản học phí của giao dịch cũ (bảng transactions vừa bị xoá ở trên).
     local keys
-    keys="$(redis_cli --scan --pattern 'otp:*' | tr -d '\r')"
+    keys="$( { redis_cli --scan --pattern 'otp:*'; redis_cli --scan --pattern 'lock:tuition:*'; } | tr -d '\r')"
     if [ -n "$keys" ]; then
         while IFS= read -r k; do [ -n "$k" ] && redis_cli DEL "$k" >/dev/null; done <<< "$keys"
     fi
