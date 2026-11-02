@@ -54,8 +54,10 @@ public class PaymentService {
         }
 
         TuitionInfo tuitionInfo = tuitionServiceClient.getTuitionByMssv(mssv);
+        // tuition-service trả 404 cho cả "không có sinh viên" lẫn "đã đóng hết" và client
+        // đổi 404 thành null — cả hai ca đều là "không có gì để đóng", không phải lỗi hệ thống.
         if (tuitionInfo == null) {
-            throw new RuntimeException("Không tìm thấy khoản học phí chưa đóng cho MSSV: " + mssv);
+            throw new TuitionNotFoundException(mssv);
         }
         if (Boolean.TRUE.equals(tuitionInfo.getPaid())) {
             throw new InsufficientBalanceException("Khoản học phí này đã được đóng");

@@ -28,6 +28,7 @@ import com.tdtu.ibanking.payment.entity.Transaction;
 import com.tdtu.ibanking.payment.entity.TransactionStatus;
 import com.tdtu.ibanking.payment.exception.InsufficientBalanceException;
 import com.tdtu.ibanking.payment.exception.InvalidOtpException;
+import com.tdtu.ibanking.payment.exception.TuitionNotFoundException;
 import com.tdtu.ibanking.payment.support.AbstractPaymentIT;
 
 /**
@@ -203,5 +204,20 @@ class PaymentServiceTest extends AbstractPaymentIT {
 
         verify(authServiceClient, times(1)).debit(eq(userId), any(BigDecimal.class), eq(txId));
         verify(tuitionServiceClient, times(1)).markPaid(any(UUID.class), eq(txId));
+    }
+
+    // ------------------------------------------------------------------ (f)
+
+    @Test
+    @DisplayName("initiate khi không còn khoản học phí chưa đóng: TuitionNotFoundException, không tạo giao dịch")
+    void initiate_khongCoKhoanHocPhi_thiNotFound() {
+        UUID userId = UUID.randomUUID();
+        when(tuitionServiceClient.getTuitionByMssv("52100006")).thenReturn(null);
+
+        assertThatThrownBy(() -> paymentService.initiatePayment("52100006", userId))
+                .isInstanceOf(TuitionNotFoundException.class);
+
+        assertThat(transactionRepository.count()).isZero();
+        verify(authServiceClient, never()).getUserInfo(any());
     }
 }

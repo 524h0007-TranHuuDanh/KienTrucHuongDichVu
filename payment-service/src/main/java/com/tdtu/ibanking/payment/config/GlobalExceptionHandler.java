@@ -5,6 +5,7 @@ import com.tdtu.ibanking.payment.exception.InvalidOtpException;
 import com.tdtu.ibanking.payment.exception.RateLimitExceededException;
 import com.tdtu.ibanking.payment.exception.ServiceBusyException;
 import com.tdtu.ibanking.payment.exception.TransactionNotFoundException;
+import com.tdtu.ibanking.payment.exception.TuitionNotFoundException;
 import com.tdtu.ibanking.payment.exception.UnauthorizedTransactionException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(TransactionNotFoundException.class)
     public ResponseEntity<Map<String, String>> handle(TransactionNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+    }
+
+    @ExceptionHandler(TuitionNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handle(TuitionNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
     }
 
