@@ -11,18 +11,23 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.tdtu.ibanking.payment.dto.BalanceResponse;
 import com.tdtu.ibanking.payment.dto.PaymentInitResponse;
 import com.tdtu.ibanking.payment.dto.PaymentSuccessResponse;
+import com.tdtu.ibanking.payment.dto.TransactionHistoryItem;
 import com.tdtu.ibanking.payment.dto.TuitionInfo;
 import com.tdtu.ibanking.payment.entity.Transaction;
 import com.tdtu.ibanking.payment.entity.TransactionStatus;
@@ -270,5 +275,23 @@ class PaymentServiceTest extends AbstractPaymentIT {
 
         assertThat(reload(stuck.getId()).getStatus()).isEqualTo(TransactionStatus.PROCESSING);
         assertThat(transactionRepository.count()).isEqualTo(1);
+    }
+
+    // ------------------------------------------------------------------ (i)
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    @DisplayName("Lịch sử trả thời gian kèm offset múi giờ, client không hiểu nhầm thành giờ máy")
+    void lichSu_thoiGianCoOffset() throws Exception {
+        UUID userId = UUID.randomUUID();
+        initiate(userId, "52100010");
+
+        List<TransactionHistoryItem> history = paymentService.getTransactionHistory(userId);
+        String json = objectMapper.writeValueAsString(history.get(0));
+
+        assertThat(json).containsPattern("\"createdAt\":\"[^\"]+(Z|[+-][0-9]{2}:[0-9]{2})\"");
+        assertThat(json).containsPattern("\"updatedAt\":\"[^\"]+(Z|[+-][0-9]{2}:[0-9]{2})\"");
     }
 }

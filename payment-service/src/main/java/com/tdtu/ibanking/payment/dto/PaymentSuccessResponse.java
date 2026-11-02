@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -16,6 +16,6 @@ public class PaymentSuccessResponse {
     private String status;
     private BigDecimal amountPaid;
     private BigDecimal remainingBalance;
-    private LocalDateTime completedAt;
+    private OffsetDateTime completedAt;
     private String message;
 }

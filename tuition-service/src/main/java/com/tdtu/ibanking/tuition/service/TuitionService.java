@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -101,7 +102,8 @@ public class TuitionService {
         response.setAmount(tuition.getAmount());
         response.setPaid(tuition.getPaid());
         response.setDueDate(tuition.getDueDate());
-        response.setPaidAt(tuition.getPaidAt());
+        response.setPaidAt(tuition.getPaidAt() == null ? null
+                : tuition.getPaidAt().atZone(ZoneId.systemDefault()).toOffsetDateTime());
         response.setTransactionId(tuition.getTransactionId());
         return response;
     }

@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -21,6 +21,8 @@ public class TransactionHistoryItem {
     private BigDecimal amount;
     private TransactionStatus status;
     private String errorMessage;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    // Có offset múi giờ: LocalDateTime trần bị trình duyệt hiểu là giờ máy người dùng,
+    // container chạy UTC nên lệch 7 tiếng.
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

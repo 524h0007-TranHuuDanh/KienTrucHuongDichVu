@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -20,6 +20,7 @@ public class TuitionDetailResponse {
     private BigDecimal amount;
     private Boolean paid;
     private LocalDate dueDate;
-    private LocalDateTime paidAt;
+    // Có offset múi giờ để client không hiểu nhầm thành giờ máy của họ.
+    private OffsetDateTime paidAt;
     private UUID transactionId;
 }

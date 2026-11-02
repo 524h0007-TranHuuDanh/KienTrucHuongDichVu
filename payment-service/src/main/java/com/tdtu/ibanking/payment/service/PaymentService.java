@@ -22,6 +22,8 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -420,7 +422,7 @@ public class PaymentService {
     private PaymentSuccessResponse successResponse(Transaction transaction, java.math.BigDecimal balance, String message) {
         return new PaymentSuccessResponse(
                 transaction.getId(), "SUCCESS", transaction.getAmount(),
-                balance, LocalDateTime.now(), message);
+                balance, OffsetDateTime.now(), message);
     }
 
     /**
@@ -467,8 +469,13 @@ public class PaymentService {
         return transactionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(t -> new TransactionHistoryItem(
                         t.getId(), t.getTuitionId(), t.getMssv(), t.getStudentName(), t.getSemester(),
-                        t.getAmount(), t.getStatus(), t.getErrorMessage(), t.getCreatedAt(), t.getUpdatedAt()))
+                        t.getAmount(), t.getStatus(), t.getErrorMessage(), withOffset(t.getCreatedAt()), withOffset(t.getUpdatedAt())))
                 .toList();
+    }
+
+    // Cột timestamp lưu giờ của JVM (không kèm múi giờ) — gắn lại đúng offset đó khi trả ra.
+    private static OffsetDateTime withOffset(LocalDateTime time) {
+        return time == null ? null : time.atZone(ZoneId.systemDefault()).toOffsetDateTime();
     }
 
     private String maskEmail(String email) {
