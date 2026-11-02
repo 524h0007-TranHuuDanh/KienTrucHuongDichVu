@@ -79,7 +79,8 @@ public class PaymentService {
         }
 
         // Một khoản học phí chỉ nên có một giao dịch đang chạy. Nếu giao dịch cũ vẫn
-        // còn OTP hiệu lực thì nhường nó; nếu OTP đã hết hạn thì khai tử để đi tiếp.
+        // còn OTP hiệu lực thì nhường nó; nếu OTP đã hết hạn thì khai tử để đi tiếp —
+        // nhưng chỉ khi nó còn PENDING (xem nhánh PROCESSING bên dưới).
         Optional<Transaction> existingOpt = transactionRepository
                 .findFirstByTuitionIdAndStatusInOrderByCreatedAtDesc(
                         tuitionInfo.getId(), List.of(TransactionStatus.PENDING, TransactionStatus.PROCESSING));
@@ -96,9 +97,17 @@ public class PaymentService {
                 throw new InsufficientBalanceException(
                         "Khoản học phí này đang được người khác xử lý thanh toán, vui lòng thử lại sau ít phút");
             }
-            existing.setStatus(TransactionStatus.FAILED);
-            existing.setErrorMessage(PendingTransactionExpiryJob.EXPIRED_MESSAGE);
-            transactionRepository.save(existing);
+            // PROCESSING mà OTP đã hết hạn = saga dừng giữa chừng vì lỗi mạng (debit hoặc
+            // mark-paid timeout). Tiền có thể đã bị trừ, nên không được đóng nó thành
+            // "hết hạn OTP" rồi cho người khác đóng tiếp: chặn khoản này tới khi đối soát xong.
+            if (existing.getStatus() == TransactionStatus.PROCESSING) {
+                log.error("Khoản học phí {} đang có giao dịch {} PROCESSING đã hết hạn OTP - CẦN ĐỐI SOÁT TAY",
+                        existing.getTuitionId(), existing.getId());
+                throw new InsufficientBalanceException(
+                        "Khoản học phí này đang có giao dịch chờ đối soát, vui lòng thử lại sau");
+            }
+            transactionRepository.failIfPending(existing.getId(),
+                    PendingTransactionExpiryJob.EXPIRED_MESSAGE, LocalDateTime.now());
         }
 
         Transaction transaction = new Transaction();

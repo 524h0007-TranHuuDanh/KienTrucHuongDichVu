@@ -246,4 +246,29 @@ class PaymentServiceTest extends AbstractPaymentIT {
         assertThat(redisTemplate.hasKey("otp:active:" + otpA)).isFalse();
         assertThat(redisTemplate.opsForValue().get("otp:active:" + otpB)).isEqualTo(txB.toString());
     }
+
+    // ------------------------------------------------------------------ (h)
+
+    @Test
+    @DisplayName("initiate gặp giao dịch PROCESSING đã hết OTP: chặn lại, không đóng nhầm giao dịch đó")
+    void initiate_gapGiaoDichProcessing_thiChanVaGiuNguyen() {
+        TuitionInfo tuition = unpaidTuition("52100009", AMOUNT);
+        Transaction stuck = new Transaction();
+        stuck.setUserId(UUID.randomUUID());
+        stuck.setTuitionId(tuition.getId());
+        stuck.setAmount(AMOUNT);
+        stuck.setStatus(TransactionStatus.PROCESSING);
+        stuck = transactionRepository.save(stuck);
+
+        UUID userId = UUID.randomUUID();
+        when(tuitionServiceClient.getTuitionByMssv("52100009")).thenReturn(tuition);
+        when(authServiceClient.getUserInfo(userId)).thenReturn(userWithBalance(userId, BALANCE));
+
+        assertThatThrownBy(() -> paymentService.initiatePayment("52100009", userId))
+                .isInstanceOf(InsufficientBalanceException.class)
+                .hasMessageContaining("chờ đối soát");
+
+        assertThat(reload(stuck.getId()).getStatus()).isEqualTo(TransactionStatus.PROCESSING);
+        assertThat(transactionRepository.count()).isEqualTo(1);
+    }
 }
