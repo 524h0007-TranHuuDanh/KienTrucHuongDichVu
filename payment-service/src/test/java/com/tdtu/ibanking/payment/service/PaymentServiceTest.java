@@ -31,7 +31,8 @@ import com.tdtu.ibanking.payment.dto.TransactionHistoryItem;
 import com.tdtu.ibanking.payment.dto.TuitionInfo;
 import com.tdtu.ibanking.payment.entity.Transaction;
 import com.tdtu.ibanking.payment.entity.TransactionStatus;
-import com.tdtu.ibanking.payment.exception.InsufficientBalanceException;
+import com.tdtu.ibanking.payment.exception.ErrorCode;
+import com.tdtu.ibanking.payment.exception.PaymentConflictException;
 import com.tdtu.ibanking.payment.exception.InvalidOtpException;
 import com.tdtu.ibanking.payment.exception.TuitionNotFoundException;
 import com.tdtu.ibanking.payment.support.AbstractPaymentIT;
@@ -165,8 +166,9 @@ class PaymentServiceTest extends AbstractPaymentIT {
         when(tuitionServiceClient.markPaid(any(UUID.class), eq(txId))).thenThrow(conflict);
 
         assertThatThrownBy(() -> paymentService.verifyOtpAndPay(txId, realOtp, userId))
-                .isInstanceOf(InsufficientBalanceException.class)
-                .hasMessage("Học phí đã được người khác thanh toán");
+                .isInstanceOf(PaymentConflictException.class)
+                .hasMessage("Học phí đã được người khác thanh toán")
+                .hasFieldOrPropertyWithValue("code", ErrorCode.TUITION_ALREADY_PAID);
 
         // Tiền đã trừ phải được hoàn lại đúng bằng số đã trừ.
         ArgumentCaptor<BigDecimal> debited = ArgumentCaptor.forClass(BigDecimal.class);
@@ -270,8 +272,9 @@ class PaymentServiceTest extends AbstractPaymentIT {
         when(authServiceClient.getUserInfo(userId)).thenReturn(userWithBalance(userId, BALANCE));
 
         assertThatThrownBy(() -> paymentService.initiatePayment("52100009", userId))
-                .isInstanceOf(InsufficientBalanceException.class)
-                .hasMessageContaining("chờ đối soát");
+                .isInstanceOf(PaymentConflictException.class)
+                .hasMessageContaining("chờ đối soát")
+                .hasFieldOrPropertyWithValue("code", ErrorCode.TUITION_LOCKED);
 
         assertThat(reload(stuck.getId()).getStatus()).isEqualTo(TransactionStatus.PROCESSING);
         assertThat(transactionRepository.count()).isEqualTo(1);

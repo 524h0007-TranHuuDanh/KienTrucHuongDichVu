@@ -21,7 +21,8 @@ import com.tdtu.ibanking.payment.dto.PaymentInitResponse;
 import com.tdtu.ibanking.payment.dto.TuitionInfo;
 import com.tdtu.ibanking.payment.dto.UserInfo;
 import com.tdtu.ibanking.payment.entity.TransactionStatus;
-import com.tdtu.ibanking.payment.exception.InsufficientBalanceException;
+import com.tdtu.ibanking.payment.exception.ErrorCode;
+import com.tdtu.ibanking.payment.exception.PaymentConflictException;
 import com.tdtu.ibanking.payment.exception.InvalidOtpException;
 import com.tdtu.ibanking.payment.support.AbstractPaymentIT;
 
@@ -58,8 +59,12 @@ class TuitionInitiateConcurrencyIT extends AbstractPaymentIT {
                     start.await();
                     paymentService.initiatePayment("52100099", userId);
                     ok.incrementAndGet();
-                } catch (InsufficientBalanceException e) {
-                    blocked.incrementAndGet();
+                } catch (PaymentConflictException e) {
+                    if (ErrorCode.TUITION_LOCKED.equals(e.getCode())) {
+                        blocked.incrementAndGet();
+                    } else {
+                        unexpected.add(e);
+                    }
                 } catch (Throwable t) {
                     unexpected.add(t);
                 } finally {

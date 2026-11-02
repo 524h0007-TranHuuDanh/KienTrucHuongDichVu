@@ -17,6 +17,7 @@ import org.springframework.amqp.AmqpException;
 import com.tdtu.ibanking.payment.dto.EmailMessage;
 import com.tdtu.ibanking.payment.dto.PaymentInitResponse;
 import com.tdtu.ibanking.payment.entity.TransactionStatus;
+import com.tdtu.ibanking.payment.exception.ErrorCode;
 import com.tdtu.ibanking.payment.exception.RateLimitExceededException;
 import com.tdtu.ibanking.payment.exception.ServiceBusyException;
 import com.tdtu.ibanking.payment.support.AbstractPaymentIT;
@@ -67,6 +68,7 @@ class RateLimitTest extends AbstractPaymentIT {
         assertThat(ex).isNotNull();
         assertThat(ex.getMessage()).isEqualTo("Bạn đã gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau.");
         assertThat(ex.getRetryAfterSeconds()).isGreaterThan(0L).isLessThanOrEqualTo(3600L);
+        assertThat(ex.getCode()).isEqualTo(ErrorCode.OTP_REQUEST_LIMIT);
 
         // Bị chặn ngay đầu initiatePayment: không tạo thêm transaction nào.
         assertThat(transactionRepository.findByUserIdOrderByCreatedAtDesc(userId)).hasSize(3);

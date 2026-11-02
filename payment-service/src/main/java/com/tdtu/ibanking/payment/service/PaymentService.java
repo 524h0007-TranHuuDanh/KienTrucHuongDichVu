@@ -60,7 +60,8 @@ public class PaymentService {
         // Mới chỉ xem còn lượt hay không; lượt được trừ ở cuối, sau khi OTP đã gửi đi.
         if (!rateLimiterService.hasOtpQuota(userId)) {
             long retryAfter = rateLimiterService.getOtpRequestRetryAfterSeconds(userId);
-            throw new RateLimitExceededException("Bạn đã gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau.", retryAfter);
+            throw new RateLimitExceededException("Bạn đã gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau.", retryAfter,
+                    ErrorCode.OTP_REQUEST_LIMIT);
         }
 
         TuitionInfo tuitionInfo = tuitionServiceClient.getTuitionByMssv(mssv);
@@ -70,7 +71,7 @@ public class PaymentService {
             throw new TuitionNotFoundException(mssv);
         }
         if (Boolean.TRUE.equals(tuitionInfo.getPaid())) {
-            throw new InsufficientBalanceException("Khoản học phí này đã được đóng");
+            throw new PaymentConflictException("Khoản học phí này đã được đóng", ErrorCode.TUITION_ALREADY_PAID);
         }
 
         UserInfo userInfo = authServiceClient.getUserInfo(userId);
@@ -102,8 +103,9 @@ public class PaymentService {
                         existing.getSemester(), existing.getAmount(), userInfo.getBalance(), expiresAt);
             }
             if (otpStillValid) {
-                throw new InsufficientBalanceException(
-                        "Khoản học phí này đang được người khác xử lý thanh toán, vui lòng thử lại sau ít phút");
+                throw new PaymentConflictException(
+                        "Khoản học phí này đang được người khác xử lý thanh toán, vui lòng thử lại sau ít phút",
+                        ErrorCode.TUITION_LOCKED);
             }
             // PROCESSING mà OTP đã hết hạn = saga dừng giữa chừng vì lỗi mạng (debit hoặc
             // mark-paid timeout). Tiền có thể đã bị trừ, nên không được đóng nó thành
@@ -111,8 +113,9 @@ public class PaymentService {
             if (existing.getStatus() == TransactionStatus.PROCESSING) {
                 log.error("Khoản học phí {} đang có giao dịch {} PROCESSING đã hết hạn OTP - CẦN ĐỐI SOÁT TAY",
                         existing.getTuitionId(), existing.getId());
-                throw new InsufficientBalanceException(
-                        "Khoản học phí này đang có giao dịch chờ đối soát, vui lòng thử lại sau");
+                throw new PaymentConflictException(
+                        "Khoản học phí này đang có giao dịch chờ đối soát, vui lòng thử lại sau",
+                        ErrorCode.TUITION_LOCKED);
             }
             transactionRepository.failIfPending(existing.getId(),
                     PendingTransactionExpiryJob.EXPIRED_MESSAGE, LocalDateTime.now());
@@ -122,8 +125,9 @@ public class PaymentService {
         Boolean tuitionLocked = redisTemplate.opsForValue().setIfAbsent(
                 tuitionLockKey, userId.toString(), OTP_TTL_MINUTES, TimeUnit.MINUTES);
         if (!Boolean.TRUE.equals(tuitionLocked)) {
-            throw new InsufficientBalanceException(
-                    "Khoản học phí này đang được người khác xử lý thanh toán, vui lòng thử lại sau ít phút");
+            throw new PaymentConflictException(
+                    "Khoản học phí này đang được người khác xử lý thanh toán, vui lòng thử lại sau ít phút",
+                    ErrorCode.TUITION_LOCKED);
         }
 
         Transaction transaction = new Transaction();
@@ -215,7 +219,8 @@ public class PaymentService {
             }
             // FAILED là trạng thái cuối — có thể đã hoàn tiền rồi, chạy lại là trừ hai lần.
             if (transaction.getStatus() == TransactionStatus.FAILED) {
-                throw new InsufficientBalanceException("Giao dịch này đã thất bại. Vui lòng khởi tạo giao dịch mới.");
+                throw new PaymentConflictException("Giao dịch này đã thất bại. Vui lòng khởi tạo giao dịch mới.",
+                        ErrorCode.TRANSACTION_FAILED);
             }
 
             if (!rateLimiterService.canAttemptOtp(transactionId, userId)) {
@@ -228,7 +233,7 @@ public class PaymentService {
                 transaction.setErrorMessage(failMsg);
                 transactionRepository.save(transaction);
                 endOtpSession(transaction);
-                throw new RateLimitExceededException(failMsg, retryAfter);
+                throw new RateLimitExceededException(failMsg, retryAfter, ErrorCode.OTP_ATTEMPT_LIMIT);
             }
 
             String storedOtp = (String) redisTemplate.opsForValue().get(OTP_PREFIX + transactionId);
@@ -269,9 +274,12 @@ public class PaymentService {
 
         boolean success = doMarkPaidWithSaga(transaction);
         if (!success) {
+            // Các nhánh thất bại có lý do rõ ràng đã ném PaymentConflictException kèm mã
+            // ngay trong doMarkPaidWithSaga; tới đây chỉ còn ca không xác định được.
             if (transaction.getStatus() == TransactionStatus.FAILED) {
-                throw new InsufficientBalanceException(
-                        transaction.getErrorMessage() != null ? transaction.getErrorMessage() : "Thanh toán thất bại");
+                throw new PaymentConflictException(
+                        transaction.getErrorMessage() != null ? transaction.getErrorMessage() : "Thanh toán thất bại",
+                        ErrorCode.PAYMENT_FAILED);
             }
             throw new ServiceBusyException("Hệ thống đang bận, giao dịch của bạn đang được xử lý. Vui lòng kiểm tra lại sau.");
         }
@@ -333,19 +341,19 @@ public class PaymentService {
                 return true;
             } catch (HttpClientErrorException.Conflict e) {
                 refundAndFail(transaction, "Học phí đã được người khác thanh toán");
-                return false;
+                throw sagaFailure(transaction, ErrorCode.TUITION_ALREADY_PAID);
             } catch (HttpClientErrorException.NotFound e) {
                 refundAndFail(transaction, "Không tìm thấy khoản học phí");
-                return false;
+                throw sagaFailure(transaction, ErrorCode.PAYMENT_FAILED);
             } catch (HttpClientErrorException.Forbidden e) {
                 log.error("SAI CẤU HÌNH: tuition-service từ chối internal API key cho transaction {}", transactionId);
                 refundAndFail(transaction, "Lỗi cấu hình hệ thống");
-                return false;
+                throw sagaFailure(transaction, ErrorCode.PAYMENT_FAILED);
             } catch (HttpClientErrorException e) {
                 log.error("Lỗi 4xx không mong đợi ({}) khi markPaid cho transaction {}: {}",
                         e.getStatusCode(), transactionId, e.getResponseBodyAsString());
                 refundAndFail(transaction, "Thanh toán thất bại, vui lòng thử lại");
-                return false;
+                throw sagaFailure(transaction, ErrorCode.PAYMENT_FAILED);
             } catch (ResourceAccessException | HttpServerErrorException e) {
                 log.warn("markPaid() lần thử {}/{} thất bại cho transaction {}: {}",
                         attempt, MAX_NETWORK_RETRIES + 1, transactionId, e.getMessage());
@@ -373,11 +381,16 @@ public class PaymentService {
 
         if (Boolean.FALSE.equals(detail.getPaid())) {
             refundAndFail(transaction, "Không thể xác nhận thanh toán học phí, đã hoàn tiền");
-            return false;
+            throw sagaFailure(transaction, ErrorCode.PAYMENT_FAILED);
         }
 
         refundAndFail(transaction, "Học phí đã được người khác thanh toán");
-        return false;
+        throw sagaFailure(transaction, ErrorCode.TUITION_ALREADY_PAID);
+    }
+
+    // Message lấy từ giao dịch vì refundAndFail có thể đã nối thêm cảnh báo đối soát.
+    private PaymentConflictException sagaFailure(Transaction transaction, String code) {
+        return new PaymentConflictException(transaction.getErrorMessage(), code);
     }
 
     private void failTransaction(Transaction transaction, String message) {
