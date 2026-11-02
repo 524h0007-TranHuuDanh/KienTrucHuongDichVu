@@ -52,7 +52,8 @@ public class PaymentController {
                     content = @Content),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy học phí hoặc giao dịch tương ứng",
                     content = @Content(schema = @Schema(type = "object"))),
-            @ApiResponse(responseCode = "409", description = "Số dư không đủ để thanh toán học phí",
+            @ApiResponse(responseCode = "409", description = "Xung đột nghiệp vụ, phân biệt bằng field code: "
+                    + "INSUFFICIENT_BALANCE, TUITION_ALREADY_PAID, TUITION_LOCKED, TUITION_CHANGED",
                     content = @Content(schema = @Schema(type = "object"))),
             @ApiResponse(responseCode = "429", description = "Vượt quá giới hạn số lần yêu cầu, vui lòng thử lại sau",
                     headers = @Header(name = "Retry-After", description = "Số giây phải chờ trước khi thử lại",
@@ -67,7 +68,7 @@ public class PaymentController {
             @Valid @RequestBody PaymentInitRequest request,
             @Parameter(hidden = true) HttpServletRequest httpRequest) {
         UUID userId = (UUID) httpRequest.getAttribute("userId");
-        PaymentInitResponse response = paymentService.initiatePayment(request.getMssv(), userId);
+        PaymentInitResponse response = paymentService.initiatePayment(request.getMssv(), request.getTuitionId(), userId);
         return ResponseEntity.ok(response);
     }
 

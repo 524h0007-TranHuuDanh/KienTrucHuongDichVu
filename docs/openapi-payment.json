@@ -343,6 +343,11 @@
           "mssv": {
             "pattern": "^[0-9]{3}[A-Za-z][0-9]{4}$",
             "type": "string"
+          },
+          "tuitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tuỳ chọn. Khoản học phí client đang hiển thị; khác khoản backend sẽ thu thì trả 409 code TUITION_CHANGED, không tạo giao dịch."
           }
         }
       },

@@ -57,6 +57,10 @@ public class PaymentService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     public PaymentInitResponse initiatePayment(String mssv, UUID userId) {
+        return initiatePayment(mssv, null, userId);
+    }
+
+    public PaymentInitResponse initiatePayment(String mssv, UUID expectedTuitionId, UUID userId) {
         // Mới chỉ xem còn lượt hay không; lượt được trừ ở cuối, sau khi OTP đã gửi đi.
         if (!rateLimiterService.hasOtpQuota(userId)) {
             long retryAfter = rateLimiterService.getOtpRequestRetryAfterSeconds(userId);
@@ -69,6 +73,11 @@ public class PaymentService {
         // đổi 404 thành null — cả hai ca đều là "không có gì để đóng", không phải lỗi hệ thống.
         if (tuitionInfo == null) {
             throw new TuitionNotFoundException(mssv);
+        }
+        if (expectedTuitionId != null && !expectedTuitionId.equals(tuitionInfo.getId())) {
+            throw new PaymentConflictException(
+                    "Khoản học phí cần đóng vừa thay đổi. Vui lòng kiểm tra lại phiếu thu trước khi xác nhận.",
+                    ErrorCode.TUITION_CHANGED);
         }
         if (Boolean.TRUE.equals(tuitionInfo.getPaid())) {
             throw new PaymentConflictException("Khoản học phí này đã được đóng", ErrorCode.TUITION_ALREADY_PAID);

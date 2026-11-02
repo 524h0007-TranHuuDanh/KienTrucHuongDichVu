@@ -318,4 +318,26 @@ class PaymentServiceTest extends AbstractPaymentIT {
         assertThat(again.getOtpExpiresAt()).isBefore(java.time.OffsetDateTime.now().plusSeconds(65));
         assertThat(again.getOtpExpiresAt()).isAfter(java.time.OffsetDateTime.now().plusSeconds(50));
     }
+
+    // ------------------------------------------------------------------ (k)
+
+    @Test
+    @DisplayName("initiate kèm tuitionId khác khoản backend sẽ thu: TUITION_CHANGED, không tạo giao dịch, không trừ lượt OTP")
+    void initiate_tuitionIdLech_thiTuChoiTruocKhiTaoGiaoDich() {
+        UUID userId = UUID.randomUUID();
+        TuitionInfo tuition = unpaidTuition("52100012", AMOUNT);
+        when(tuitionServiceClient.getTuitionByMssv("52100012")).thenReturn(tuition);
+        when(authServiceClient.getUserInfo(userId)).thenReturn(userWithBalance(userId, BALANCE));
+
+        assertThatThrownBy(() -> paymentService.initiatePayment("52100012", UUID.randomUUID(), userId))
+                .isInstanceOf(PaymentConflictException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.TUITION_CHANGED);
+
+        assertThat(transactionRepository.count()).isZero();
+        assertThat(redisTemplate.hasKey("otp:request:" + userId)).isFalse();
+
+        // Đúng tuitionId thì đi tiếp bình thường.
+        PaymentInitResponse ok = paymentService.initiatePayment("52100012", tuition.getId(), userId);
+        assertThat(ok.getTuitionId()).isEqualTo(tuition.getId());
+    }
 }

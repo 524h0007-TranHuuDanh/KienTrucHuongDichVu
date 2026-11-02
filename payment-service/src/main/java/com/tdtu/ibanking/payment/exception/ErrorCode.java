@@ -11,6 +11,8 @@ public final class ErrorCode {
     public static final String TUITION_ALREADY_PAID = "TUITION_ALREADY_PAID";
     /** Khoản học phí đang được một giao dịch khác giữ (đang chờ OTP hoặc chờ đối soát). */
     public static final String TUITION_LOCKED = "TUITION_LOCKED";
+    /** Khoản học phí backend sẽ thu khác khoản client gửi lên lúc initiate. */
+    public static final String TUITION_CHANGED = "TUITION_CHANGED";
     public static final String INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE";
     public static final String OTP_INVALID = "OTP_INVALID";
     public static final String OTP_REQUEST_LIMIT = "OTP_REQUEST_LIMIT";
