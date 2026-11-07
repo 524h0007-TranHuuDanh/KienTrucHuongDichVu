@@ -11,23 +11,30 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.tdtu.ibanking.payment.dto.BalanceResponse;
 import com.tdtu.ibanking.payment.dto.PaymentInitResponse;
 import com.tdtu.ibanking.payment.dto.PaymentSuccessResponse;
+import com.tdtu.ibanking.payment.dto.TransactionHistoryItem;
 import com.tdtu.ibanking.payment.dto.TuitionInfo;
 import com.tdtu.ibanking.payment.entity.Transaction;
 import com.tdtu.ibanking.payment.entity.TransactionStatus;
-import com.tdtu.ibanking.payment.exception.InsufficientBalanceException;
+import com.tdtu.ibanking.payment.exception.ErrorCode;
+import com.tdtu.ibanking.payment.exception.PaymentConflictException;
 import com.tdtu.ibanking.payment.exception.InvalidOtpException;
+import com.tdtu.ibanking.payment.exception.TuitionNotFoundException;
 import com.tdtu.ibanking.payment.support.AbstractPaymentIT;
 
 /**
@@ -159,10 +166,11 @@ class PaymentServiceTest extends AbstractPaymentIT {
         when(tuitionServiceClient.markPaid(any(UUID.class), eq(txId))).thenThrow(conflict);
 
         assertThatThrownBy(() -> paymentService.verifyOtpAndPay(txId, realOtp, userId))
-                .isInstanceOf(InsufficientBalanceException.class)
-                .hasMessage("Học phí đã được người khác thanh toán");
+                .isInstanceOf(PaymentConflictException.class)
+                .hasMessage("Học phí đã được người khác thanh toán")
+                .hasFieldOrPropertyWithValue("code", ErrorCode.TUITION_ALREADY_PAID);
 
-        // Tiền đã trừ phải được hoàn lại ĐÚNG BẰNG số đã trừ.
+        // Tiền đã trừ phải được hoàn lại đúng bằng số đã trừ.
         ArgumentCaptor<BigDecimal> debited = ArgumentCaptor.forClass(BigDecimal.class);
         verify(authServiceClient).debit(eq(userId), debited.capture(), eq(txId));
 
@@ -203,5 +211,133 @@ class PaymentServiceTest extends AbstractPaymentIT {
 
         verify(authServiceClient, times(1)).debit(eq(userId), any(BigDecimal.class), eq(txId));
         verify(tuitionServiceClient, times(1)).markPaid(any(UUID.class), eq(txId));
+    }
+
+    // ------------------------------------------------------------------ (f)
+
+    @Test
+    @DisplayName("initiate khi không còn khoản học phí chưa đóng: TuitionNotFoundException, không tạo giao dịch")
+    void initiate_khongCoKhoanHocPhi_thiNotFound() {
+        UUID userId = UUID.randomUUID();
+        when(tuitionServiceClient.getTuitionByMssv("52100006")).thenReturn(null);
+
+        assertThatThrownBy(() -> paymentService.initiatePayment("52100006", userId))
+                .isInstanceOf(TuitionNotFoundException.class);
+
+        assertThat(transactionRepository.count()).isZero();
+        verify(authServiceClient, never()).getUserInfo(any());
+    }
+
+    // ------------------------------------------------------------------ (g)
+
+    @Test
+    @DisplayName("OTP được giữ chỗ theo giá trị: hai giao dịch đang hiệu lực không trùng mã, chốt xong thì nhả")
+    void otpDangHieuLuc_khongTrungVaDuocNhaKhiChot() {
+        UUID userA = UUID.randomUUID();
+        UUID userB = UUID.randomUUID();
+        UUID txA = initiate(userA, "52100007").getTransactionId();
+        UUID txB = initiate(userB, "52100008").getTransactionId();
+        String otpA = readOtp(txA);
+        String otpB = readOtp(txB);
+
+        assertThat(otpA).isNotEqualTo(otpB);
+        assertThat(redisTemplate.opsForValue().get("otp:active:" + otpA)).isEqualTo(txA.toString());
+        assertThat(redisTemplate.opsForValue().get("otp:active:" + otpB)).isEqualTo(txB.toString());
+
+        // Sai đủ 3 lần -> giao dịch A chốt FAILED, mã của A phải được nhả, mã của B giữ nguyên.
+        String wrong = wrongOtpFor(otpA).equals(otpB) ? "222222" : wrongOtpFor(otpA);
+        for (int i = 0; i < 3; i++) {
+            catchThrowableOfType(() -> paymentService.verifyOtpAndPay(txA, wrong, userA), InvalidOtpException.class);
+        }
+        assertThat(reload(txA).getStatus()).isEqualTo(TransactionStatus.FAILED);
+        assertThat(redisTemplate.hasKey("otp:active:" + otpA)).isFalse();
+        assertThat(redisTemplate.opsForValue().get("otp:active:" + otpB)).isEqualTo(txB.toString());
+    }
+
+    // ------------------------------------------------------------------ (h)
+
+    @Test
+    @DisplayName("initiate gặp giao dịch PROCESSING đã hết OTP: chặn lại, không đóng nhầm giao dịch đó")
+    void initiate_gapGiaoDichProcessing_thiChanVaGiuNguyen() {
+        TuitionInfo tuition = unpaidTuition("52100009", AMOUNT);
+        Transaction stuck = new Transaction();
+        stuck.setUserId(UUID.randomUUID());
+        stuck.setTuitionId(tuition.getId());
+        stuck.setAmount(AMOUNT);
+        stuck.setStatus(TransactionStatus.PROCESSING);
+        stuck = transactionRepository.save(stuck);
+
+        UUID userId = UUID.randomUUID();
+        when(tuitionServiceClient.getTuitionByMssv("52100009")).thenReturn(tuition);
+        when(authServiceClient.getUserInfo(userId)).thenReturn(userWithBalance(userId, BALANCE));
+
+        assertThatThrownBy(() -> paymentService.initiatePayment("52100009", userId))
+                .isInstanceOf(PaymentConflictException.class)
+                .hasMessageContaining("chờ đối soát")
+                .hasFieldOrPropertyWithValue("code", ErrorCode.TUITION_LOCKED);
+
+        assertThat(reload(stuck.getId()).getStatus()).isEqualTo(TransactionStatus.PROCESSING);
+        assertThat(transactionRepository.count()).isEqualTo(1);
+    }
+
+    // ------------------------------------------------------------------ (i)
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    @DisplayName("Lịch sử trả thời gian kèm offset múi giờ, client không hiểu nhầm thành giờ máy")
+    void lichSu_thoiGianCoOffset() throws Exception {
+        UUID userId = UUID.randomUUID();
+        initiate(userId, "52100010");
+
+        List<TransactionHistoryItem> history = paymentService.getTransactionHistory(userId);
+        String json = objectMapper.writeValueAsString(history.get(0));
+
+        assertThat(json).containsPattern("\"createdAt\":\"[^\"]+(Z|[+-][0-9]{2}:[0-9]{2})\"");
+        assertThat(json).containsPattern("\"updatedAt\":\"[^\"]+(Z|[+-][0-9]{2}:[0-9]{2})\"");
+    }
+
+    // ------------------------------------------------------------------ (j)
+
+    @Test
+    @DisplayName("initiate lại khi OTP còn hạn: trả đúng giao dịch cũ kèm hạn OTP thật, không gia hạn thêm")
+    void initiateLai_traHanOtpThat() {
+        UUID userId = UUID.randomUUID();
+        // Cùng một khoản học phí cho cả hai lần (helper initiate() sinh tuitionId mới mỗi lần gọi).
+        when(tuitionServiceClient.getTuitionByMssv("52100011")).thenReturn(unpaidTuition("52100011", AMOUNT));
+        when(authServiceClient.getUserInfo(userId)).thenReturn(userWithBalance(userId, BALANCE));
+        PaymentInitResponse first = paymentService.initiatePayment("52100011", userId);
+        assertThat(first.getOtpExpiresAt()).isNotNull();
+
+        // Rút TTL còn 60 giây để thấy rõ response lần hai không cộng lại 5 phút.
+        redisTemplate.expire(OTP_PREFIX + first.getTransactionId(), 60, java.util.concurrent.TimeUnit.SECONDS);
+        PaymentInitResponse again = paymentService.initiatePayment("52100011", userId);
+
+        assertThat(again.getTransactionId()).isEqualTo(first.getTransactionId());
+        assertThat(again.getOtpExpiresAt()).isBefore(java.time.OffsetDateTime.now().plusSeconds(65));
+        assertThat(again.getOtpExpiresAt()).isAfter(java.time.OffsetDateTime.now().plusSeconds(50));
+    }
+
+    // ------------------------------------------------------------------ (k)
+
+    @Test
+    @DisplayName("initiate kèm tuitionId khác khoản backend sẽ thu: TUITION_CHANGED, không tạo giao dịch, không trừ lượt OTP")
+    void initiate_tuitionIdLech_thiTuChoiTruocKhiTaoGiaoDich() {
+        UUID userId = UUID.randomUUID();
+        TuitionInfo tuition = unpaidTuition("52100012", AMOUNT);
+        when(tuitionServiceClient.getTuitionByMssv("52100012")).thenReturn(tuition);
+        when(authServiceClient.getUserInfo(userId)).thenReturn(userWithBalance(userId, BALANCE));
+
+        assertThatThrownBy(() -> paymentService.initiatePayment("52100012", UUID.randomUUID(), userId))
+                .isInstanceOf(PaymentConflictException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.TUITION_CHANGED);
+
+        assertThat(transactionRepository.count()).isZero();
+        assertThat(redisTemplate.hasKey("otp:request:" + userId)).isFalse();
+
+        // Đúng tuitionId thì đi tiếp bình thường.
+        PaymentInitResponse ok = paymentService.initiatePayment("52100012", tuition.getId(), userId);
+        assertThat(ok.getTuitionId()).isEqualTo(tuition.getId());
     }
 }

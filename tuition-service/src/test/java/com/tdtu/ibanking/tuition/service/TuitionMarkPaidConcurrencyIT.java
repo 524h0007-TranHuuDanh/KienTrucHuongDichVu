@@ -25,10 +25,10 @@ import com.tdtu.ibanking.tuition.AbstractPostgresIT;
 import com.tdtu.ibanking.tuition.exception.TuitionAlreadyPaidException;
 
 /**
- * RACE #2 (rubric 6.3): nhieu tai khoan cung thanh toan MOT khoan hoc phi,
+ * RACE #2 (rubric 6.3): nhieu tai khoan cung thanh toan mot khoan hoc phi,
  * chi duoc phep 1 lan thanh cong.
  *
- * <p>10 luong goi {@code markPaid} tren CUNG mot tuitionId voi transactionId khac nhau.
+ * <p>10 luong goi {@code markPaid} tren cung mot tuitionId voi transactionId khac nhau.
  * Dung starting-gate (ready / start / done latch) de ep 10 luong that su dap vao DB
  * cung luc - neu chi submit tuan tu thi test se pass ngay ca khi da go bo
  * {@code @Lock(PESSIMISTIC_WRITE)}, tuc la xanh gia.
@@ -47,7 +47,7 @@ class TuitionMarkPaidConcurrencyIT extends AbstractPostgresIT {
 
     @BeforeEach
     void setUp() {
-        // Du lieu RIENG cua test, khong dung row seed cua data.sql.
+        // Du lieu rieng cua test, khong dung row seed cua data.sql.
         ownMssv = uniqueMssv();
         insertStudent(ownMssv);
         tuitionId = insertUnpaidTuition(ownMssv, "HK1-2526", "2025-10-15", new BigDecimal("8500000.00"));

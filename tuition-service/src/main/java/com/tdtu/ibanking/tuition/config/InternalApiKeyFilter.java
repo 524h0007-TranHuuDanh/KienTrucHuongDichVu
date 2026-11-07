@@ -19,14 +19,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-// sửa lỗi #1: payment-service gọi 2 route GET này để tra học phí, trước đây
-// không nằm trong danh sách bảo vệ nên internal key có gắn cũng bị bỏ qua,
-// và JwtAuthenticationFilter cũng không xác thực được vì payment-service không
-// có JWT người dùng để chuyển tiếp -> luôn bị anyRequest().authenticated() chặn.
-// Giờ 2 route GET chấp nhận CẢ internal key (payment-service) LẪN JWT người
-// dùng thật (frontend gọi qua gateway để xem thông tin học phí). mark-paid vẫn
-// bắt buộc internal key tuyệt đối - JWT không thay thế được, vì gọi thẳng sẽ
-// bỏ qua toàn bộ luồng trừ tiền/OTP của payment-service.
+/**
+ * Hai route GET tra học phí có hai loại người gọi: payment-service (mang internal key,
+ * không có JWT của người dùng để chuyển tiếp) và frontend qua gateway (mang JWT).
+ * Nên cả hai đều được chấp nhận.
+ *
+ * <p>mark-paid thì bắt buộc internal key: gọi thẳng được vào đây là bỏ qua toàn bộ
+ * luồng OTP và trừ tiền bên payment-service.
+ */
 @Component
 public class InternalApiKeyFilter extends OncePerRequestFilter {
 

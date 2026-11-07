@@ -15,7 +15,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.UUID;
-//sửa cho P06: bỏ log token
 @Component
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -50,8 +49,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
         log.debug("Payment filter called for path: {}", path);
-
-        //file 2.4 ở trên đã giữ lại khối này - dọn triệt để theo đúng P23 
 
         String authHeader = request.getHeader("Authorization");
         log.debug("Authorization header present: {}", authHeader != null);

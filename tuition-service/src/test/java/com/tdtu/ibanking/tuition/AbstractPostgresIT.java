@@ -14,18 +14,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * Base cho toan bo test cua tuition-service.
  *
- * <p>Chay tren Postgres THAT (testcontainers) chu khong phai H2, vi:
+ * <p>Chay tren Postgres that (testcontainers) chu khong phai H2, vi:
  * <ul>
  *   <li>{@code TuitionRepository.findFirstUnpaid} la native query dung {@code LIMIT 1};</li>
  *   <li>{@code findByIdForUpdate} dua tren {@code SELECT ... FOR UPDATE} - H2 co ngu nghia
  *       khoa khac nen test concurrency se pass ngay ca khi da go bo khoa (xanh gia).</li>
  * </ul>
  *
- * <p>Container la static singleton (khoi tao 1 lan trong static block, KHONG dung
+ * <p>Container la static singleton (khoi tao 1 lan trong static block, khong dung
  * {@code @Container} de JUnit khong stop container sau moi class) -> ca 3 test class
  * dung chung 1 database va Spring context duoc cache.
  *
- * <p>KHONG dat {@code @Transactional} len test class: markPaid va test concurrency phai
+ * <p>khong dat {@code @Transactional} len test class: markPaid va test concurrency phai
  * commit that su thi khoa pessimistic moi co y nghia.
  */
 @SpringBootTest
@@ -68,7 +68,7 @@ public abstract class AbstractPostgresIT {
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         // 10 luong cua test concurrency, moi luong giu 1 connection trong suot transaction.
         registry.add("spring.datasource.hikari.maximum-pool-size", () -> "20");
-        // application.yml khai bao ${JWT_SECRET} / ${INTERNAL_API_KEY} KHONG co default
+        // application.yml khai bao ${JWT_SECRET} / ${INTERNAL_API_KEY} khong co default
         // -> thieu 2 property nay thi context khong khoi dong duoc.
         registry.add("jwt.secret", () -> TEST_JWT_SECRET);
         registry.add("internal.api-key", () -> TEST_INTERNAL_API_KEY);
@@ -78,12 +78,12 @@ public abstract class AbstractPostgresIT {
     protected JdbcTemplate jdbcTemplate;
 
     // ---------------------------------------------------------------------
-    // Helper tao/xoa du lieu RIENG cua test.
+    // Helper tao/xoa du lieu rieng cua test.
     //
     // data.sql chay lai moi lan khoi dong (spring.sql.init.mode: always) va seed
     // 524H0001..524H0005 voi id co dinh. Test chi ĐOC moi duoc dung du lieu seed;
     // moi test co GHI (markPaid, concurrency) phai tu tao row rieng voi id
-    // UUID.randomUUID() va mssv duy nhat, roi tu don dep - KHONG truncate bang.
+    // UUID.randomUUID() va mssv duy nhat, roi tu don dep - khong truncate bang.
     // ---------------------------------------------------------------------
 
     /** Sinh mssv duy nhat, do dai <= 16 (cot students.mssv la varchar(16), UNIQUE). */

@@ -70,7 +70,10 @@ login() { # $1=username $2=password -> in ra "token|userId"
     printf '%s|%s' "$(json_str "$out" accessToken)" "$(json_str "$out" userId)"
 }
 
-balance_of() { psql_db authdb "SELECT balance FROM users WHERE username='$1'"; }
+# Từ khi tách account-service, số dư nằm ở accountdb.accounts (khoá theo user_id),
+# còn username chỉ có ở authdb.users — hai DB khác nhau nên phải tra hai bước.
+user_id_of() { psql_db authdb "SELECT id FROM users WHERE username='$1'"; }
+balance_of() { psql_db accountdb "SELECT balance FROM accounts WHERE user_id='$(user_id_of "$1")' AND is_default=true"; }
 
 get_otp() { # $1=transactionId — giá trị lưu bằng GenericJackson2JsonRedisSerializer nên có dấu nháy
     redis_cli GET "otp:$1" | tr -d '"' | tr -d '\r'
@@ -81,9 +84,9 @@ get_otp() { # $1=transactionId — giá trị lưu bằng GenericJackson2JsonRed
 # chạy lại được nhiều lần. data.sql dùng ON CONFLICT DO NOTHING nên khởi động
 # lại container KHÔNG khôi phục các dòng đã bị gạch nợ.
 reset_fixtures() {
-    psql_db authdb "UPDATE users SET balance = 100000000.00 WHERE username='524h0088';
-                    UPDATE users SET balance =  15000000.00 WHERE username='524h0456';
-                    DELETE FROM balance_entries;" >/dev/null
+    psql_db accountdb "UPDATE accounts SET balance = 100000000.00 WHERE user_id='$(user_id_of 524h0088)' AND is_default=true;
+                       UPDATE accounts SET balance =  15000000.00 WHERE user_id='$(user_id_of 524h0456)' AND is_default=true;
+                       DELETE FROM balance_entries;" >/dev/null
 
     # 524H0002: cố ý để HK2-2425 ĐÃ ĐÓNG, để GET /api/tuition/524H0002 trả kỳ
     # HK1-2526 (9.200.000) — cần số tiền này thì tổng 2 giao dịch của kịch bản A
@@ -106,9 +109,10 @@ reset_fixtures() {
 
     psql_db paymentdb "DELETE FROM transactions;" >/dev/null
 
-    # Xoá OTP + bộ đếm rate-limit (3 OTP/giờ/user) để chạy lại không bị 429
+    # Xoá OTP + bộ đếm rate-limit (3 OTP/giờ/user) để chạy lại không bị 429, và khoá
+    # giữ khoản học phí của giao dịch cũ (bảng transactions vừa bị xoá ở trên).
     local keys
-    keys="$(redis_cli --scan --pattern 'otp:*' | tr -d '\r')"
+    keys="$( { redis_cli --scan --pattern 'otp:*'; redis_cli --scan --pattern 'lock:tuition:*'; } | tr -d '\r')"
     if [ -n "$keys" ]; then
         while IFS= read -r k; do [ -n "$k" ] && redis_cli DEL "$k" >/dev/null; done <<< "$keys"
     fi
@@ -326,8 +330,8 @@ scenario_b() {
         local loser_tx loser_msg dbt crd
         loser_tx="$(psql_db paymentdb "SELECT id FROM transactions WHERE status='FAILED' LIMIT 1")"
         loser_msg="$(psql_db paymentdb "SELECT COALESCE(error_message,'') FROM transactions WHERE id='$loser_tx'")"
-        dbt="$(psql_db authdb "SELECT COALESCE(SUM(amount),0) FROM balance_entries WHERE transaction_id='$loser_tx' AND type='DEBIT'")"
-        crd="$(psql_db authdb "SELECT COALESCE(SUM(amount),0) FROM balance_entries WHERE transaction_id='$loser_tx' AND type='CREDIT'")"
+        dbt="$(psql_db accountdb "SELECT COALESCE(SUM(amount),0) FROM balance_entries WHERE transaction_id='$loser_tx' AND type='DEBIT'")"
+        crd="$(psql_db accountdb "SELECT COALESCE(SUM(amount),0) FROM balance_entries WHERE transaction_id='$loser_tx' AND type='CREDIT'")"
 
         if printf '%s' "$loser_msg" | grep -q 'Học phí đã được người khác thanh toán'; then
             ok_reason "Giao dịch thua FAILED đúng lý do: \"$loser_msg\""
@@ -343,7 +347,7 @@ scenario_b() {
     else
         # Guard P-17 chặn từ đầu -> người thua không được có bút toán nào.
         local n_entries
-        n_entries="$(psql_db authdb "SELECT COUNT(*) FROM balance_entries WHERE type='DEBIT'")"
+        n_entries="$(psql_db accountdb "SELECT COUNT(*) FROM balance_entries WHERE type='DEBIT'")"
         if [ "$n_entries" = "1" ]; then
             ok_reason "Người thua bị chặn ngay ở initiate nên chưa từng bị trừ tiền (chỉ 1 bút toán DEBIT)"
         else

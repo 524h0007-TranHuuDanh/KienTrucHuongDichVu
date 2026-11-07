@@ -343,6 +343,11 @@
           "mssv": {
             "pattern": "^[0-9]{3}[A-Za-z][0-9]{4}$",
             "type": "string"
+          },
+          "tuitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tuỳ chọn. Khoản học phí client đang hiển thị; khác khoản backend sẽ thu thì trả 409 code TUITION_CHANGED, không tạo giao dịch."
           }
         }
       },
@@ -353,11 +358,26 @@
             "type": "string",
             "format": "uuid"
           },
+          "tuitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Khoản học phí thật sự được ghi nợ"
+          },
+          "semester": {
+            "type": "string",
+            "description": "Học kỳ của khoản học phí",
+            "example": "HK1-2526"
+          },
           "amount": {
             "type": "number"
           },
           "balance": {
             "type": "number"
+          },
+          "otpExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Hạn thật của OTP (kèm offset múi giờ). Gọi initiate lại khi OTP cũ còn hạn sẽ nhận lại đúng giao dịch cũ và hạn cũ, không có mã mới."
           }
         }
       },

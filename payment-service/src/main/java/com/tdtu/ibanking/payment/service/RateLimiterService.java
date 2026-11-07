@@ -6,7 +6,12 @@ import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-//sửa cho p09, p10, p18,p19
+
+/**
+ * Ba hạn mức quanh OTP, tất cả đếm trên Redis: số lần xin OTP theo giờ (mỗi user),
+ * số lần nhập sai của một giao dịch, và tổng số lần nhập sai theo giờ của một user —
+ * cái cuối để người dùng không lách hạn mức bằng cách tạo giao dịch mới liên tục.
+ */
 @Service
 @RequiredArgsConstructor
 public class RateLimiterService {
@@ -21,7 +26,7 @@ public class RateLimiterService {
     private static final int MAX_USER_FAILS_PER_HOUR = 8;
     private static final int ATTEMPT_TTL_MINUTES = 5;
 
-    // ===== P-18: tách CHECK và TRỪ lượt gửi OTP =====
+    // Xem và trừ lượt là hai bước riêng: PaymentService chỉ trừ sau khi email đã đi.
     public boolean hasOtpQuota(UUID userId) {
         String key = OTP_REQUEST_LIMIT + userId;
         Integer count = (Integer) redisTemplate.opsForValue().get(key);
@@ -30,7 +35,8 @@ public class RateLimiterService {
 
     public void consumeOtpQuota(UUID userId) {
         String key = OTP_REQUEST_LIMIT + userId;
-        Long newCount = redisTemplate.opsForValue().increment(key);   // P-10: atomic increment
+        // INCR atomic, khỏi lo hai request song song cùng ghi đè lên một giá trị đọc trước.
+        Long newCount = redisTemplate.opsForValue().increment(key);
         if (newCount != null && newCount == 1L) {
             redisTemplate.expire(key, 1, TimeUnit.HOURS);
         }
@@ -42,7 +48,6 @@ public class RateLimiterService {
         if (v != null && v < 0) redisTemplate.opsForValue().set(key, 0);
     }
 
-    // ===== P-09, P-19: sửa đếm lệch 1 đơn vị + thêm counter theo user =====
     public boolean canAttemptOtp(UUID transactionId, UUID userId) {
         String userKey = OTP_USER_FAIL_LIMIT + userId;
         Integer userFails = (Integer) redisTemplate.opsForValue().get(userKey);
@@ -75,7 +80,7 @@ public class RateLimiterService {
         redisTemplate.delete(OTP_USER_FAIL_LIMIT + userId);
     }
 
-    // ===== Cho FE hiển thị đúng "còn bao nhiêu lần / còn bao nhiêu giây" =====
+    // Hai hàm dưới cho FE hiển thị "còn mấy lần thử" và "chờ bao lâu".
 
     public int getRemainingAttempts(UUID transactionId) {
         Integer count = (Integer) redisTemplate.opsForValue().get(OTP_ATTEMPT_LIMIT + transactionId);
@@ -88,8 +93,7 @@ public class RateLimiterService {
     }
 
     public long getOtpAttemptRetryAfterSeconds(UUID transactionId, UUID userId) {
-        // canAttemptOtp() chặn nếu VƯỢT MỘT TRONG HAI giới hạn (theo giao dịch hoặc theo user),
-        // nên trả về TTL dài hơn — đó mới là thời gian thật sự phải chờ.
+        // Bị chặn bởi một trong hai bộ đếm, nên phải chờ cái lâu hơn mới thử lại được.
         return Math.max(
                 ttlSeconds(OTP_ATTEMPT_LIMIT + transactionId),
                 ttlSeconds(OTP_USER_FAIL_LIMIT + userId));

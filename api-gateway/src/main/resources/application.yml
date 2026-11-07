@@ -20,6 +20,11 @@ spring:
               - OPTIONS
             allowedHeaders:
               - "*"
+            # Mặc định CORS chỉ cho JS đọc 7 header an toàn; Retry-After không nằm
+            # trong đó nên FE không đọc được header của response 429 nếu không khai
+            # ở đây (xem Frontend-midterm/src/api/client.ts:69 - phần fallback).
+            exposedHeaders:
+              - "Retry-After"
             allowCredentials: true
       routes:
         - id: auth-service-docs

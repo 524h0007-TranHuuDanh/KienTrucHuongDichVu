@@ -6,7 +6,6 @@ import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-//sửa cho P13: đọc từ spring.data.redis, bỏ hardcode
 @Configuration
 public class RedissonConfig {
 

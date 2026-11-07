@@ -34,6 +34,11 @@ public class Transaction {
     @Column(name = "student_name", length = 128)
     private String studentName;
 
+    // Snapshot hoc ky cua khoan hoc phi: mot MSSV co the no nhieu ky, khong co
+    // truong nay thi lich su chi thay so tien va khong biet dang xem ky nao.
+    @Column(name = "semester", length = 32)
+    private String semester;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 

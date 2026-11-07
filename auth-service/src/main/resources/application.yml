@@ -15,13 +15,15 @@ spring:
     show-sql: true
 
 jwt:
-  secret: ${JWT_SECRET:c2VjcmV0LWtleS1mb3ItaWJhbmtpbmctcHJvamVjdA==}
+  secret: ${JWT_SECRET} #ẩn đi 
   expiration: 86400000
 
 internal:
   api-key: ${INTERNAL_API_KEY}
 
-# đã đổi lại pass word cho đúng P24
+# account-service gọi thẳng qua DNS nội bộ của docker-compose, không vòng qua gateway.
+account-service:
+  base-url: ${ACCOUNT_SERVICE_BASE_URL:http://account-service:8085}
 
 # URL gốc hiển thị trong Swagger UI (trường `servers` của spec).
 # Gateway không giữ Host header gốc nên phải khai báo tường minh,

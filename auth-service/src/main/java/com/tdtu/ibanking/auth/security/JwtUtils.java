@@ -20,10 +20,9 @@ public class JwtUtils {
     @Value("${jwt.expiration}")
     private int jwtExpirationMs;
 
-    // sửa lỗi #4: chỉ định rõ UTF-8 thay vì charset mặc định của JVM, khớp với
-    // cách tuition-service dựng lại key ký (JwtUtil.getSignKey()) - tránh lệch
-    // chữ ký nếu secret có ký tự ngoài ASCII và hai service chạy trên JVM có
-    // charset mặc định khác nhau.
+    // UTF-8 tường minh, không dựa vào charset mặc định của JVM: tuition-service dựng
+    // lại key ký theo cách này, lệch charset là lệch luôn chữ ký khi secret có ký tự
+    // ngoài ASCII.
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }

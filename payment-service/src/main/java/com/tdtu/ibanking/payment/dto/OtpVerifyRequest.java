@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.UUID;
-//sửa cho P12: thêm @NotBlank cho otp
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

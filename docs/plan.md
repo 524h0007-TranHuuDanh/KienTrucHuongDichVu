@@ -588,7 +588,7 @@ auth-service/                                [THÊM phần số dư]
   - BA-2 (không lấy được OTP) → QĐ 3-B, đọc từ Redis (Mục 9.8)
   - BA-3 (thiếu compensation) → saga trừ-tiền-trước + đọc lại khi timeout (Mục 5.4)
   - BA-13 (xác thực service-to-service) → phát hiện sau review, chuyển tiếp JWT (Mục 8)
-- [x] **(c)** Bạn xác nhận bằng lời → đã chạy `/agent-orchestrator`
+- [x] **(c)** Bạn xác nhận bằng lời → đã triển khai
 
 ## 13. Kết quả nghiệm thu (đã chạy thật ngày 30/08/2026)
 
